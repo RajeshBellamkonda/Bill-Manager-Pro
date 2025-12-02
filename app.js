@@ -193,6 +193,16 @@ class BillManagerApp {
             document.getElementById('importFileInput').click();
         });
         document.getElementById('importFileInput').addEventListener('change', (e) => this.importData(e));
+        
+        // Quick add category in bill form
+        document.getElementById('addNewCategoryBtn').addEventListener('click', () => this.showNewCategoryInput());
+        document.getElementById('saveNewCategoryBtn').addEventListener('click', () => this.saveNewCategoryFromForm());
+        document.getElementById('cancelNewCategoryBtn').addEventListener('click', () => this.hideNewCategoryInput());
+        
+        // Quick add currency in settings
+        document.getElementById('addNewCurrencyBtn').addEventListener('click', () => this.showNewCurrencyInput());
+        document.getElementById('saveNewCurrencyBtn').addEventListener('click', () => this.saveNewCurrency());
+        document.getElementById('cancelNewCurrencyBtn').addEventListener('click', () => this.hideNewCurrencyInput());
     }
 
     toggleCategoryList() {
@@ -271,28 +281,22 @@ class BillManagerApp {
         const daysUntilDue = Math.ceil((dueDate - today) / (1000 * 60 * 60 * 24));
         
         let statusClass = '';
-        let statusText = '';
         let statusBadge = '';
         
         if (bill.isPaid) {
             statusClass = 'paid';
-            statusText = '✓ Paid';
-            statusBadge = '<span class="status-badge status-paid">Paid</span>';
+            statusBadge = '<span class="status-badge status-paid">✓ Paid</span>';
         } else if (daysUntilDue < 0) {
             statusClass = 'overdue';
-            statusText = `⚠️ ${Math.abs(daysUntilDue)} days overdue`;
-            statusBadge = '<span class="status-badge status-overdue">Overdue</span>';
+            statusBadge = '<span class="status-badge status-overdue">⚠ Overdue</span>';
         } else if (daysUntilDue === 0) {
             statusClass = 'upcoming';
-            statusText = '🔔 Due today';
-            statusBadge = '<span class="status-badge status-pending">Due Today</span>';
+            statusBadge = '<span class="status-badge status-pending">🔔 Due Today</span>';
         } else if (daysUntilDue <= 3) {
             statusClass = 'upcoming';
-            statusText = `📅 Due in ${daysUntilDue} day(s)`;
-            statusBadge = '<span class="status-badge status-pending">Upcoming</span>';
+            statusBadge = '<span class="status-badge status-pending">⏰ Upcoming</span>';
         } else {
-            statusText = `📅 Due in ${daysUntilDue} day(s)`;
-            statusBadge = '<span class="status-badge status-pending">Pending</span>';
+            statusBadge = '<span class="status-badge status-pending">📅 Pending</span>';
         }
 
         const frequencyIcon = {
@@ -304,41 +308,48 @@ class BillManagerApp {
             'yearly': '🎂'
         }[bill.frequency] || '🔄';
 
-        const categoryIcon = '📁';
-        const statusIcon = bill.isPaid ? '✅' : (daysUntilDue < 0 ? '⚠️' : (daysUntilDue === 0 ? '🔔' : '⏰'));
-
         return `
             <div class="bill-card ${statusClass}" ${bill.isPaid ? `onclick="app.togglePaidBill(event, ${bill.id})"` : ''}>
                 <div class="bill-card-row bill-header-row">
                     <div class="bill-info-left">
                         <div class="bill-name">${bill.name}</div>
+                        <div class="bill-meta">
+                            <span class="bill-meta-item"><span class="meta-icon">📅</span>${dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                            <span class="bill-meta-item"><span class="meta-icon">${frequencyIcon}</span>${this.formatFrequency(bill.frequency)}</span>
+                            ${bill.category ? `<span class="bill-meta-item"><span class="meta-icon">📁</span>${bill.category}</span>` : ''}
+                        </div>
+                    </div>
+                    <div class="bill-amount-section">
+                        <div class="bill-amount">${this.currencySymbol}${amount.toFixed(2)}</div>
                         ${statusBadge}
                     </div>
-                    <div class="bill-amount">${this.currencySymbol}${amount.toFixed(2)}</div>
                 </div>
-                <div class="bill-card-row bill-details-row">
-                    <div class="bill-detail-item">
-                        <span class="detail-icon">${statusIcon}</span>
-                        <span class="detail-text">${dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
-                    </div>
-                    <div class="bill-detail-item">
-                        <span class="detail-icon">${frequencyIcon}</span>
-                        <span class="detail-text">${this.formatFrequency(bill.frequency)}</span>
-                    </div>
-                    <div class="bill-detail-item">
-                        <span class="detail-icon">${categoryIcon}</span>
-                        <span class="detail-text">${bill.category}</span>
-                    </div>
-                </div>
-                ${bill.notes ? `<div class="bill-card-row bill-notes-row"><span class="detail-icon">📝</span><span class="detail-text">${bill.notes}</span></div>` : ''}
                 <div class="bill-card-row bill-actions-row">
                     ${!bill.isPaid ? `
-                        <button class="btn-action btn-action-success" onclick="app.markAsPaid(${bill.id})" title="Mark as Paid">✓</button>
+                        <button class="btn-action btn-action-success" onclick="app.markAsPaid(${bill.id})" title="Mark as Paid">
+                            <span class="btn-icon">✓</span>
+                            <span class="btn-label">Paid</span>
+                        </button>
                     ` : `
-                        <button class="btn-action btn-action-secondary" onclick="event.stopPropagation(); app.markAsUnpaid(${bill.id})" title="Mark as Unpaid">↺</button>
+                        <button class="btn-action btn-action-secondary" onclick="event.stopPropagation(); app.markAsUnpaid(${bill.id})" title="Mark as Unpaid">
+                            <span class="btn-icon">↺</span>
+                            <span class="btn-label">Undo</span>
+                        </button>
                     `}
-                    <button class="btn-action btn-action-secondary" onclick="event.stopPropagation(); app.editBill(${bill.id})" title="Edit">✏️</button>
-                    <button class="btn-action btn-action-danger" onclick="event.stopPropagation(); app.deleteBill(${bill.id})" title="Delete">🗑️</button>
+                    <button class="btn-action btn-action-secondary" onclick="event.stopPropagation(); app.editBill(${bill.id})" title="Edit">
+                        <span class="btn-icon">✏️</span>
+                        <span class="btn-label">Edit</span>
+                    </button>
+                    <button class="btn-action btn-action-danger" onclick="event.stopPropagation(); app.deleteBill(${bill.id})" title="Delete">
+                        <span class="btn-icon">🗑️</span>
+                        <span class="btn-label">Delete</span>
+                    </button>
+                    ${bill.notes ? `
+                        <button class="btn-action btn-action-info" onclick="event.stopPropagation(); alert('${bill.notes.replace(/'/g, "\\'")}');" title="View Notes">
+                            <span class="btn-icon">📝</span>
+                            <span class="btn-label">Notes</span>
+                        </button>
+                    ` : ''}
                 </div>
             </div>
         `;
@@ -686,6 +697,9 @@ class BillManagerApp {
     }
 
     async loadSettings() {
+        // Load custom currencies
+        await this.loadCurrencyDropdown();
+        
         // Load currency
         const savedCurrency = await database.getSetting('currency');
         if (savedCurrency) {
@@ -793,6 +807,119 @@ class BillManagerApp {
         } catch (error) {
             console.error('Error removing category:', error);
             alert('Error removing category. Please try again.');
+        }
+    }
+
+    showNewCategoryInput() {
+        document.getElementById('newCategoryInput').style.display = 'flex';
+        document.getElementById('newCategoryName').focus();
+    }
+
+    hideNewCategoryInput() {
+        document.getElementById('newCategoryInput').style.display = 'none';
+        document.getElementById('newCategoryName').value = '';
+    }
+
+    async saveNewCategoryFromForm() {
+        const categoryName = document.getElementById('newCategoryName').value.trim();
+        
+        if (!categoryName) {
+            alert('Please enter a category name');
+            return;
+        }
+
+        try {
+            const added = await database.addCategory(categoryName);
+            
+            if (!added) {
+                alert('This category already exists');
+                return;
+            }
+
+            // Reload dropdown and select the new category
+            await this.loadCategoryDropdown();
+            document.getElementById('billCategory').value = categoryName;
+            
+            this.hideNewCategoryInput();
+            
+        } catch (error) {
+            console.error('Error adding category:', error);
+            alert('Error adding category. Please try again.');
+        }
+    }
+
+    async loadCurrencyDropdown() {
+        const customCurrencies = await database.getSetting('customCurrencies') || [];
+        const currencySelect = document.getElementById('currencySymbol');
+        
+        // Default currencies
+        const defaultCurrencies = [
+            { symbol: '£', name: 'British Pound' },
+            { symbol: '$', name: 'US Dollar' },
+            { symbol: '€', name: 'Euro' },
+            { symbol: '¥', name: 'Yen' },
+            { symbol: '₹', name: 'Rupee' },
+            { symbol: '₣', name: 'Franc' },
+            { symbol: '₽', name: 'Ruble' },
+            { symbol: '₩', name: 'Won' }
+        ];
+        
+        // Combine default and custom currencies
+        const allCurrencies = [...defaultCurrencies, ...customCurrencies];
+        
+        currencySelect.innerHTML = allCurrencies
+            .map(curr => `<option value="${curr.symbol}">${curr.symbol} (${curr.name})</option>`)
+            .join('');
+    }
+
+    showNewCurrencyInput() {
+        document.getElementById('newCurrencyInput').style.display = 'flex';
+        document.getElementById('newCurrencySymbol').focus();
+    }
+
+    hideNewCurrencyInput() {
+        document.getElementById('newCurrencyInput').style.display = 'none';
+        document.getElementById('newCurrencySymbol').value = '';
+        document.getElementById('newCurrencyName').value = '';
+    }
+
+    async saveNewCurrency() {
+        const symbol = document.getElementById('newCurrencySymbol').value.trim();
+        const name = document.getElementById('newCurrencyName').value.trim();
+        
+        if (!symbol || !name) {
+            alert('Please enter both symbol and name');
+            return;
+        }
+
+        if (symbol.length > 3) {
+            alert('Currency symbol should be 3 characters or less');
+            return;
+        }
+
+        try {
+            const customCurrencies = await database.getSetting('customCurrencies') || [];
+            
+            // Check if currency already exists
+            if (customCurrencies.some(curr => curr.symbol === symbol)) {
+                alert('This currency symbol already exists');
+                return;
+            }
+            
+            // Add new currency
+            customCurrencies.push({ symbol, name });
+            await database.saveSetting('customCurrencies', customCurrencies);
+            
+            // Reload dropdown and select the new currency
+            await this.loadCurrencyDropdown();
+            document.getElementById('currencySymbol').value = symbol;
+            await this.updateCurrency(symbol);
+            
+            this.hideNewCurrencyInput();
+            
+        } catch (error) {
+            console.error('Error adding currency:', error);
+            alert('Error adding currency. Please try again.');
         }
     }
 

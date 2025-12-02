@@ -106,9 +106,19 @@
 
                     <div class="form-group">
                         <label for="billCategory">Category</label>
-                        <select id="billCategory">
-                            <option value="">Select a category</option>
-                        </select>
+                        <div class="category-input-group">
+                            <select id="billCategory">
+                                <option value="">Select a category</option>
+                            </select>
+                            <button type="button" id="addNewCategoryBtn" class="btn-icon-small" title="Add New Category">+</button>
+                        </div>
+                        <div id="newCategoryInput" class="new-category-input" style="display: none;">
+                            <input type="text" id="newCategoryName" placeholder="Enter new category name" class="form-input">
+                            <div class="new-category-actions">
+                                <button type="button" id="saveNewCategoryBtn" class="btn-icon-small btn-success" title="Save">✓</button>
+                                <button type="button" id="cancelNewCategoryBtn" class="btn-icon-small btn-danger" title="Cancel">✕</button>
+                            </div>
+                        </div>
                     </div>
 
                     <div class="form-group">
@@ -246,18 +256,32 @@
 
                 <div class="settings-group">
                     <h3>Currency</h3>
-                    <div class="form-group">
-                        <label for="currencySymbol">Currency Symbol</label>
-                        <select id="currencySymbol">
-                            <option value="£">£ (British Pound)</option>
-                            <option value="$">$ (US Dollar)</option>
-                            <option value="€">€ (Euro)</option>
-                            <option value="¥">¥ (Yen)</option>
-                            <option value="₹">₹ (Rupee)</option>
-                            <option value="₣">₣ (Franc)</option>
-                            <option value="₽">₽ (Ruble)</option>
-                            <option value="₩">₩ (Won)</option>
-                        </select>
+                    <p class="settings-description">Select your currency symbol or add a custom one</p>
+                    <div class="currency-management">
+                        <div class="form-group">
+                            <label for="currencySymbol">Currency Symbol</label>
+                            <div class="currency-input-group">
+                                <select id="currencySymbol">
+                                    <option value="£">£ (British Pound)</option>
+                                    <option value="$">$ (US Dollar)</option>
+                                    <option value="€">€ (Euro)</option>
+                                    <option value="¥">¥ (Yen)</option>
+                                    <option value="₹">₹ (Rupee)</option>
+                                    <option value="₣">₣ (Franc)</option>
+                                    <option value="₽">₽ (Ruble)</option>
+                                    <option value="₩">₩ (Won)</option>
+                                </select>
+                                <button type="button" id="addNewCurrencyBtn" class="btn-icon-small" title="Add Custom Currency">+</button>
+                            </div>
+                        </div>
+                        <div id="newCurrencyInput" class="new-currency-input" style="display: none;">
+                            <input type="text" id="newCurrencySymbol" placeholder="Enter symbol (e.g., ₦)" maxlength="3" class="form-input">
+                            <input type="text" id="newCurrencyName" placeholder="Enter name (e.g., Naira)" class="form-input">
+                            <div class="new-currency-actions">
+                                <button type="button" id="saveNewCurrencyBtn" class="btn-icon-small btn-success" title="Save">✓</button>
+                                <button type="button" id="cancelNewCurrencyBtn" class="btn-icon-small btn-danger" title="Cancel">✕</button>
+                            </div>
+                        </div>
                     </div>
                 </div>
 
