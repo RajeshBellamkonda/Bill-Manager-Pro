@@ -436,6 +436,54 @@ header h1 {
     color: var(--text-primary);
 }
 
+.quick-add-btn {
+    position: fixed;
+    bottom: 30px;
+    right: 30px;
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    color: white;
+    border: none;
+    font-size: 2rem;
+    cursor: pointer;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    transition: all 0.3s ease;
+    z-index: 900;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.quick-add-btn:hover {
+    transform: scale(1.1) rotate(90deg);
+    box-shadow: 0 6px 30px rgba(0, 0, 0, 0.4);
+}
+
+.quick-add-btn:active {
+    transform: scale(0.95) rotate(90deg);
+}
+
+.quick-add-btn .plus-icon {
+    font-size: 2.5rem;
+    line-height: 1;
+    font-weight: 300;
+}
+
+@media (max-width: 768px) {
+    .quick-add-btn {
+        width: 56px;
+        height: 56px;
+        bottom: 20px;
+        right: 20px;
+    }
+    
+    .quick-add-btn .plus-icon {
+        font-size: 2.2rem;
+    }
+}
+
 .nav-btn {
     padding: 10px 20px;
     background: var(--secondary-color);

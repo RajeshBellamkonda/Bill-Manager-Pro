@@ -171,6 +171,21 @@ class BillManagerApp {
                 document.body.style.overflow = '';
             }
         });
+        
+        // Quick add bill button
+        document.getElementById('quickAddBillBtn').addEventListener('click', () => {
+            this.switchTab('add-bill');
+            // Close mobile menu if open
+            if (window.innerWidth <= 768) {
+                const burgerMenu = document.getElementById('burgerMenu');
+                const mainTabs = document.getElementById('mainTabs');
+                const menuOverlay = document.getElementById('menuOverlay');
+                burgerMenu.classList.remove('active');
+                mainTabs.classList.remove('active');
+                menuOverlay.classList.remove('active');
+                document.body.style.overflow = '';
+            }
+        });
     }
 
     toggleCategoryList() {
