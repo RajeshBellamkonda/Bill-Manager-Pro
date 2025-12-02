@@ -339,9 +339,97 @@ header h1 {
     transform: translateY(-2px);
 }
 
+.bill-card.paid:hover {
+    cursor: pointer;
+}
+
+.bill-card.paid.expanded {
+    padding: 20px;
+}
+
+.bill-card.paid.expanded .bill-header {
+    flex-direction: column;
+    align-items: flex-start;
+    margin-bottom: 10px;
+}
+
+.bill-card.paid.expanded .bill-header > div:first-child {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 5px;
+}
+
+.bill-card.paid.expanded .bill-name {
+    font-size: 1.3rem;
+}
+
+.bill-card.paid.expanded .bill-amount {
+    font-size: 1.5rem;
+    margin-left: 0;
+}
+
+.bill-card.paid.expanded .bill-details,
+.bill-card.paid.expanded .bill-actions {
+    display: flex;
+}
+
+@media (max-width: 768px) {
+    .bill-card.paid.expanded {
+        padding: 15px;
+    }
+}
+
 .bill-card.paid {
     opacity: 0.7;
     border-left-color: var(--success-color);
+    padding: 12px 20px;
+}
+
+.bill-card.paid .bill-header {
+    flex-direction: row;
+    align-items: center;
+    margin-bottom: 0;
+}
+
+.bill-card.paid .bill-header > div:first-child {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex: 1;
+}
+
+.bill-card.paid .bill-name {
+    font-size: 1rem;
+    margin: 0;
+}
+
+.bill-card.paid .bill-amount {
+    font-size: 1.2rem;
+    margin-left: 10px;
+}
+
+.bill-card.paid .bill-details,
+.bill-card.paid .bill-actions {
+    display: none;
+}
+
+.bill-card.paid .status-badge {
+    font-size: 0.8rem;
+    padding: 3px 10px;
+}
+
+@media (max-width: 768px) {
+    .bill-card.paid {
+        padding: 10px 15px;
+    }
+    
+    .bill-card.paid .bill-name {
+        font-size: 0.9rem;
+    }
+    
+    .bill-card.paid .bill-amount {
+        font-size: 1rem;
+    }
 }
 
 .bill-card.overdue {

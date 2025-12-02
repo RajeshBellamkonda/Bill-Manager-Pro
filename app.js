@@ -246,7 +246,7 @@ class BillManagerApp {
         }
 
         return `
-            <div class="bill-card ${statusClass}">
+            <div class="bill-card ${statusClass}" ${bill.isPaid ? `onclick="app.togglePaidBill(event, ${bill.id})"` : ''}>
                 <div class="bill-header">
                     <div>
                         <div class="bill-name">${bill.name}</div>
@@ -265,13 +265,23 @@ class BillManagerApp {
                     ${!bill.isPaid ? `
                         <button class="btn btn-success btn-small" onclick="app.markAsPaid(${bill.id})">✓ Mark as Paid</button>
                     ` : `
-                        <button class="btn btn-secondary btn-small" onclick="app.markAsUnpaid(${bill.id})">↺ Mark as Unpaid</button>
+                        <button class="btn btn-secondary btn-small" onclick="event.stopPropagation(); app.markAsUnpaid(${bill.id})">↺ Mark as Unpaid</button>
                     `}
-                    <button class="btn btn-secondary btn-small" onclick="app.editBill(${bill.id})">✏️ Edit</button>
-                    <button class="btn btn-danger btn-small" onclick="app.deleteBill(${bill.id})">🗑️ Delete</button>
+                    <button class="btn btn-secondary btn-small" onclick="event.stopPropagation(); app.editBill(${bill.id})">✏️ Edit</button>
+                    <button class="btn btn-danger btn-small" onclick="event.stopPropagation(); app.deleteBill(${bill.id})">🗑️ Delete</button>
                 </div>
             </div>
         `;
+    }
+
+    togglePaidBill(event, billId) {
+        // Don't toggle if clicking on a button
+        if (event.target.tagName === 'BUTTON') {
+            return;
+        }
+        
+        const billCard = event.currentTarget;
+        billCard.classList.toggle('expanded');
     }
 
     formatFrequency(frequency) {
