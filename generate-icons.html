@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Generate Icons</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            text-align: center;
+        }
+        canvas {
+            border: 1px solid #ccc;
+            margin: 20px auto;
+            display: block;
+        }
+        button {
+            padding: 10px 20px;
+            font-size: 16px;
+            margin: 10px;
+            cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+    <h1>Icon Generator for Bill Manager Pro</h1>
+    <p>Click the buttons below to generate and download icons</p>
+    <canvas id="iconCanvas"></canvas>
+    <div>
+        <button onclick="generateIcon(72)">72x72</button>
+        <button onclick="generateIcon(96)">96x96</button>
+        <button onclick="generateIcon(128)">128x128</button>
+        <button onclick="generateIcon(144)">144x144</button>
+        <button onclick="generateIcon(152)">152x152</button>
+        <button onclick="generateIcon(192)">192x192</button>
+        <button onclick="generateIcon(384)">384x384</button>
+        <button onclick="generateIcon(512)">512x512</button>
+        <button onclick="generateAll()">Generate All</button>
+    </div>
+
+    <script>
+        function generateIcon(size) {
+            const canvas = document.getElementById('iconCanvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+
+            // Create gradient background
+            const gradient = ctx.createLinearGradient(0, 0, size, size);
+            gradient.addColorStop(0, '#4CAF50');
+            gradient.addColorStop(1, '#2196F3');
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, size, size);
+
+            // Draw dollar sign
+            ctx.fillStyle = 'white';
+            ctx.font = `bold ${size * 0.6}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('💰', size / 2, size / 2);
+
+            // Download
+            canvas.toBlob((blob) => {
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `icon-${size}.png`;
+                a.click();
+                URL.revokeObjectURL(url);
+            });
+        }
+
+        function generateAll() {
+            const sizes = [72, 96, 128, 144, 152, 192, 384, 512];
+            let index = 0;
+
+            function generateNext() {
+                if (index < sizes.length) {
+                    generateIcon(sizes[index]);
+                    index++;
+                    setTimeout(generateNext, 500);
+                }
+            }
+
+            generateNext();
+        }
+    </script>
+</body>
+</html>

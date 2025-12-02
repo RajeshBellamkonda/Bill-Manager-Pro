@@ -1,0 +1,308 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+    <meta name="description" content="Manage your bills and payments efficiently with Bill Manager Pro">
+    <meta name="theme-color" content="#4CAF50">
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="apple-mobile-web-app-title" content="BillManager">
+    <title>Bill Manager Pro</title>
+    
+    <!-- PWA Manifest -->
+    <link rel="manifest" href="manifest.json">
+    
+    <!-- Apple Touch Icons -->
+    <link rel="apple-touch-icon" href="icon-152.png">
+    <link rel="apple-touch-icon" sizes="152x152" href="icon-152.png">
+    <link rel="apple-touch-icon" sizes="180x180" href="icon-192.png">
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" sizes="32x32" href="icon-72.png">
+    
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>💰 Bill Manager Pro</h1>
+            <button class="burger-menu" id="burgerMenu" aria-label="Toggle menu">
+                <span></span>
+                <span></span>
+                <span></span>
+            </button>
+            <div class="header-actions">
+                <div class="profile-selector">
+                    <label for="profileSelect">Profile:</label>
+                    <select id="profileSelect" class="profile-dropdown"></select>
+                </div>
+                <button id="installBtn" class="notification-btn" style="display: none;">📱 Install App</button>
+                <button id="requestNotificationBtn" class="notification-btn">Enable Notifications</button>
+            </div>
+        </header>
+
+        <div class="menu-overlay" id="menuOverlay"></div>
+        <nav class="tabs" id="mainTabs">
+            <button class="tab-btn active" data-tab="timeline">Timeline</button>
+            <button class="tab-btn" data-tab="add-bill">Add Bill</button>
+            <button class="tab-btn" data-tab="templates">Templates</button>
+            <button class="tab-btn" data-tab="analytics">Analytics</button>
+            <button class="tab-btn" data-tab="settings">Settings</button>
+        </nav>
+
+        <!-- Timeline View -->
+        <div id="timeline-tab" class="tab-content active">
+            <div class="timeline-header">
+                <button id="prevMonth" class="nav-btn">← Previous</button>
+                <h2 id="currentMonth"></h2>
+                <button id="nextMonth" class="nav-btn">Next →</button>
+            </div>
+            <div id="billsTimeline" class="bills-timeline"></div>
+        </div>
+
+        <!-- Add Bill Tab -->
+        <div id="add-bill-tab" class="tab-content">
+            <div class="form-container">
+                <h2 id="formTitle">Add New Bill</h2>
+                <form id="billForm">
+                    <input type="hidden" id="billId">
+                    
+                    <div class="form-group">
+                        <label for="billName">Bill Name *</label>
+                        <input type="text" id="billName" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="billAmount">Amount *</label>
+                        <input type="number" id="billAmount" step="0.01" min="0" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="billDate">Due Date *</label>
+                        <input type="date" id="billDate" required>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="billFrequency">Frequency *</label>
+                        <select id="billFrequency" required>
+                            <option value="once">One-time</option>
+                            <option value="weekly">Weekly</option>
+                            <option value="bi-weekly">Bi-weekly</option>
+                            <option value="monthly" selected>Monthly</option>
+                            <option value="quarterly">Quarterly</option>
+                            <option value="yearly">Yearly</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="billCategory">Category</label>
+                        <select id="billCategory">
+                            <option value="">Select a category</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="billNotes">Notes</label>
+                        <textarea id="billNotes" rows="3"></textarea>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="reminderDays">Remind me (days before)</label>
+                        <input type="number" id="reminderDays" min="0" max="30" value="3">
+                    </div>
+
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">Save Bill</button>
+                        <button type="button" id="cancelBtn" class="btn btn-secondary">Cancel</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- Templates Tab -->
+        <div id="templates-tab" class="tab-content">
+            <div class="templates-section">
+                <div class="templates-header">
+                    <h2>Bill Templates</h2>
+                    <button id="createTemplateBtn" class="btn btn-primary">Create Template from Current Bills</button>
+                </div>
+                <div id="templatesList" class="templates-list"></div>
+                
+                <div class="template-actions">
+                    <h3>Apply Template</h3>
+                    <div class="apply-template-form">
+                        <select id="templateSelect">
+                            <option value="">Select a template</option>
+                        </select>
+                        <select id="targetMonth">
+                            <option value="">Select target month</option>
+                        </select>
+                        <button id="applyTemplateBtn" class="btn btn-primary">Apply to Month</button>
+                        <button id="applyTemplateYearBtn" class="btn btn-secondary">Apply to Full Year</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Analytics Tab -->
+        <div id="analytics-tab" class="tab-content">
+            <div class="analytics-section">
+                <h2>Spending Analytics</h2>
+                
+                <div class="stats-cards">
+                    <div class="stat-card">
+                        <h3>This Month</h3>
+                        <p class="stat-value" id="currentMonthTotal">$0.00</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Last Month</h3>
+                        <p class="stat-value" id="lastMonthTotal">$0.00</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Average Monthly</h3>
+                        <p class="stat-value" id="avgMonthlyTotal">$0.00</p>
+                    </div>
+                    <div class="stat-card">
+                        <h3>Total Bills</h3>
+                        <p class="stat-value" id="totalBills">0</p>
+                    </div>
+                </div>
+
+                <div class="chart-container">
+                    <h3>Monthly Spending Trend</h3>
+                    <canvas id="spendingChart"></canvas>
+                </div>
+
+                <div class="chart-container">
+                    <h3>Category Breakdown</h3>
+                    <canvas id="categoryChart"></canvas>
+                </div>
+
+                <div class="bills-report">
+                    <h3>Detailed Report</h3>
+                    <div id="detailedReport"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Settings Tab -->
+        <div id="settings-tab" class="tab-content">
+            <div class="settings-section">
+                <h2>Settings</h2>
+                
+                <div class="settings-group">
+                    <h3>Profile Management</h3>
+                    <p class="settings-description">Create separate profiles for different users or purposes (e.g., Personal, Business, Family)</p>
+                    <div class="profile-management">
+                        <div class="current-profile">
+                            <strong>Current Profile:</strong> <span id="currentProfileName">Default</span>
+                        </div>
+                        <div class="profile-actions-form">
+                            <input type="text" id="newProfileName" placeholder="New profile name" class="profile-input">
+                            <button id="createProfileBtn" class="btn btn-primary">Create Profile</button>
+                        </div>
+                        <div class="profile-list">
+                            <h4>Available Profiles</h4>
+                            <div id="profilesList"></div>
+                        </div>
+                        <div class="profile-danger-zone">
+                            <h4>Danger Zone</h4>
+                            <button id="deleteProfileBtn" class="btn btn-danger">Delete Current Profile</button>
+                            <p class="warning-text">⚠️ This will permanently delete all bills, templates, and data for this profile!</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-group">
+                    <h3>Bill Categories</h3>
+                    <p class="settings-description">Manage your bill categories for better organization</p>
+                    <div class="category-management">
+                        <div class="category-actions-form">
+                            <input type="text" id="newCategoryName" placeholder="New category name" class="profile-input">
+                            <button id="addCategoryBtn" class="btn btn-primary">Add Category</button>
+                        </div>
+                        <div class="category-list">
+                            <h4>Your Categories</h4>
+                            <div id="categoriesList"></div>
+                        </div>
+                        <button id="resetCategoriesBtn" class="btn btn-secondary">Reset to Default Categories</button>
+                    </div>
+                </div>
+
+                <div class="settings-group">
+                    <h3>Currency</h3>
+                    <div class="form-group">
+                        <label for="currencySymbol">Currency Symbol</label>
+                        <select id="currencySymbol">
+                            <option value="£">£ (British Pound)</option>
+                            <option value="$">$ (US Dollar)</option>
+                            <option value="€">€ (Euro)</option>
+                            <option value="¥">¥ (Yen)</option>
+                            <option value="₹">₹ (Rupee)</option>
+                            <option value="₣">₣ (Franc)</option>
+                            <option value="₽">₽ (Ruble)</option>
+                            <option value="₩">₩ (Won)</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="settings-group">
+                    <h3>Theme</h3>
+                    <div class="theme-selector">
+                        <div class="theme-option" data-theme="default">
+                            <div class="theme-preview theme-preview-default"></div>
+                            <span>Default (Green)</span>
+                        </div>
+                        <div class="theme-option" data-theme="blue">
+                            <div class="theme-preview theme-preview-blue"></div>
+                            <span>Ocean Blue</span>
+                        </div>
+                        <div class="theme-option" data-theme="purple">
+                            <div class="theme-preview theme-preview-purple"></div>
+                            <span>Royal Purple</span>
+                        </div>
+                        <div class="theme-option" data-theme="orange">
+                            <div class="theme-preview theme-preview-orange"></div>
+                            <span>Sunset Orange</span>
+                        </div>
+                        <div class="theme-option" data-theme="dark">
+                            <div class="theme-preview theme-preview-dark"></div>
+                            <span>Dark Mode</span>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="settings-group">
+                    <h3>Notifications</h3>
+                    <div class="form-group">
+                        <label>
+                            <input type="checkbox" id="notificationsEnabled">
+                            Enable notifications
+                        </label>
+                    </div>
+                </div>
+
+                <div class="settings-actions">
+                    <button id="saveSettingsBtn" class="btn btn-primary">Save Settings</button>
+                    <button id="resetSettingsBtn" class="btn btn-secondary">Reset to Defaults</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <footer class="app-footer">
+        <div class="footer-content">
+            <p>&copy; 2025 Rajesh Bellamkonda. All rights reserved.</p>
+            <p class="footer-license">Licensed under the <a href="LICENSE" target="_blank">MIT License</a> - Open Source Software</p>
+        </div>
+    </footer>
+
+    <script src="pwa-handler.js"></script>
+    <script src="database.js"></script>
+    <script src="notifications.js"></script>
+    <script src="charts.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>
