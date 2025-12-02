@@ -186,6 +186,13 @@ class BillManagerApp {
                 document.body.style.overflow = '';
             }
         });
+        
+        // Data export/import
+        document.getElementById('exportDataBtn').addEventListener('click', () => this.exportData());
+        document.getElementById('importDataBtn').addEventListener('click', () => {
+            document.getElementById('importFileInput').click();
+        });
+        document.getElementById('importFileInput').addEventListener('change', (e) => this.importData(e));
     }
 
     toggleCategoryList() {
@@ -1011,6 +1018,120 @@ class BillManagerApp {
         };
         
         dateTimeElement.textContent = now.toLocaleString('en-GB', options);
+    }
+
+    async exportData() {
+        try {
+            // Get all data from database
+            const bills = await database.getAllBills();
+            const templates = await database.getAllTemplates();
+            const profiles = await database.getAllProfiles();
+            const categories = await database.getCategories();
+            const settings = await database.getAllSettings();
+            
+            const exportData = {
+                version: '1.0',
+                exportDate: new Date().toISOString(),
+                bills: bills,
+                templates: templates,
+                profiles: profiles,
+                categories: categories,
+                settings: settings
+            };
+            
+            // Create blob and download
+            const dataStr = JSON.stringify(exportData, null, 2);
+            const blob = new Blob([dataStr], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a');
+            link.href = url;
+            link.download = `billmanager-backup-${new Date().toISOString().split('T')[0]}.json`;
+            document.body.appendChild(link);
+            link.click();
+            document.body.removeChild(link);
+            URL.revokeObjectURL(url);
+            
+            alert('Data exported successfully!');
+        } catch (error) {
+            console.error('Export error:', error);
+            alert('Failed to export data. Please try again.');
+        }
+    }
+
+    async importData(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+        
+        try {
+            const text = await file.text();
+            const importData = JSON.parse(text);
+            
+            if (!importData.version || !importData.bills) {
+                throw new Error('Invalid backup file format');
+            }
+            
+            // Confirm import
+            const confirmed = confirm(`Import data from backup dated ${new Date(importData.exportDate).toLocaleDateString()}?\n\nThis will merge with your existing data.`);
+            if (!confirmed) {
+                event.target.value = '';
+                return;
+            }
+            
+            // Import profiles first
+            if (importData.profiles) {
+                for (const profile of importData.profiles) {
+                    const existing = await database.getProfile(profile.id);
+                    if (!existing) {
+                        await database.db.add('profiles', profile);
+                    }
+                }
+            }
+            
+            // Import categories
+            if (importData.categories) {
+                await database.saveSetting('categories', importData.categories);
+            }
+            
+            // Import bills
+            if (importData.bills) {
+                for (const bill of importData.bills) {
+                    const existing = await database.getBill(bill.id);
+                    if (!existing) {
+                        await database.db.add('bills', bill);
+                    }
+                }
+            }
+            
+            // Import templates
+            if (importData.templates) {
+                for (const template of importData.templates) {
+                    const existing = await database.getTemplate(template.id);
+                    if (!existing) {
+                        await database.db.add('templates', template);
+                    }
+                }
+            }
+            
+            // Import settings (selective)
+            if (importData.settings) {
+                for (const setting of importData.settings) {
+                    if (setting.key !== 'currentProfileId') {
+                        await database.saveSetting(setting.key, setting.value);
+                    }
+                }
+            }
+            
+            alert(`Data imported successfully!\n\nImported:\n- ${importData.bills?.length || 0} bills\n- ${importData.templates?.length || 0} templates\n- ${importData.profiles?.length || 0} profiles`);
+            
+            // Reload the page to reflect changes
+            location.reload();
+        } catch (error) {
+            console.error('Import error:', error);
+            alert('Failed to import data. Please check the file format and try again.');
+        }
+        
+        // Reset file input
+        event.target.value = '';
     }
 }
 

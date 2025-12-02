@@ -1463,6 +1463,44 @@ header h1 {
     font-size: 0.95rem;
 }
 
+.info-text {
+    color: var(--text-secondary);
+    margin-top: 15px;
+    font-size: 0.9rem;
+    padding: 12px;
+    background: rgba(76, 175, 80, 0.1);
+    border-left: 3px solid var(--primary-color);
+    border-radius: 4px;
+}
+
+/* Data Management */
+.data-management {
+    background: var(--bg-color);
+    padding: 20px;
+    border-radius: 8px;
+}
+
+.data-actions {
+    display: flex;
+    gap: 15px;
+    flex-wrap: wrap;
+}
+
+.data-actions .btn {
+    flex: 1;
+    min-width: 150px;
+}
+
+@media (max-width: 768px) {
+    .data-actions {
+        flex-direction: column;
+    }
+    
+    .data-actions .btn {
+        width: 100%;
+    }
+}
+
 /* Category Management */
 .category-management {
     background: var(--bg-color);

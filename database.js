@@ -265,6 +265,10 @@ class BillDatabase {
         });
     }
 
+    async getTemplate(id) {
+        return this.getTemplateById(id);
+    }
+
     async deleteTemplate(id) {
         const transaction = this.db.transaction(['templates'], 'readwrite');
         const store = transaction.objectStore('templates');
@@ -344,6 +348,17 @@ class BillDatabase {
         });
     }
 
+    async getAllSettings() {
+        const transaction = this.db.transaction(['settings'], 'readonly');
+        const store = transaction.objectStore('settings');
+
+        return new Promise((resolve, reject) => {
+            const request = store.getAll();
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+        });
+    }
+
     // Profile operations
     async createProfile(profileName) {
         const transaction = this.db.transaction(['profiles'], 'readwrite');
@@ -381,6 +396,10 @@ class BillDatabase {
             request.onsuccess = () => resolve(request.result);
             request.onerror = () => reject(request.error);
         });
+    }
+
+    async getProfile(id) {
+        return this.getProfileById(id);
     }
 
     async renameProfile(profileId, newName) {
