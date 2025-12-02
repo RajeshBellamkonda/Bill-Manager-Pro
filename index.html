@@ -27,29 +27,34 @@
 <body>
     <div class="container">
         <header>
-            <h1>💰 Bill Manager Pro</h1>
-            <button class="burger-menu" id="burgerMenu" aria-label="Toggle menu">
-                <span></span>
-                <span></span>
-                <span></span>
-            </button>
-            <div class="header-actions">
+            <div class="header-left">
+                <button class="burger-menu" id="burgerMenu" aria-label="Toggle menu">
+                    <span></span>
+                    <span></span>
+                    <span></span>
+                </button>
+                <h1 id="appTitle" class="app-title">💷Bill Manager Pro</h1>
+            </div>
+            <div class="header-center">
+                <div id="headerDateTime" class="header-datetime"></div>
+            </div>
+            <div class="header-right">
                 <div class="profile-selector">
-                    <label for="profileSelect">Profile:</label>
-                    <select id="profileSelect" class="profile-dropdown"></select>
+                    <select id="profileSelect" class="profile-dropdown" title="Switch Profile"></select>
                 </div>
-                <button id="installBtn" class="notification-btn" style="display: none;">📱 Install App</button>
-                <button id="requestNotificationBtn" class="notification-btn">Enable Notifications</button>
+                <button id="installBtn" class="icon-btn" style="display: none;" title="Install App">📱</button>
+                <button id="requestNotificationBtn" class="icon-btn" title="Enable Notifications">🔔</button>
             </div>
         </header>
 
         <div class="menu-overlay" id="menuOverlay"></div>
         <nav class="tabs" id="mainTabs">
-            <button class="tab-btn active" data-tab="timeline">Timeline</button>
-            <button class="tab-btn" data-tab="add-bill">Add Bill</button>
-            <button class="tab-btn" data-tab="templates">Templates</button>
-            <button class="tab-btn" data-tab="analytics">Analytics</button>
-            <button class="tab-btn" data-tab="settings">Settings</button>
+            <div class="nav-header">📋 Menu</div>
+            <button class="tab-btn active" data-tab="timeline">📅 Timeline</button>
+            <button class="tab-btn" data-tab="add-bill">➕ Add Bill</button>
+            <button class="tab-btn" data-tab="templates">📑 Templates</button>
+            <button class="tab-btn" data-tab="analytics">📊 Analytics</button>
+            <button class="tab-btn" data-tab="settings">⚙️ Settings</button>
         </nav>
 
         <!-- Timeline View -->
@@ -223,9 +228,14 @@
                             <input type="text" id="newCategoryName" placeholder="New category name" class="profile-input">
                             <button id="addCategoryBtn" class="btn btn-primary">Add Category</button>
                         </div>
-                        <div class="category-list">
-                            <h4>Your Categories</h4>
-                            <div id="categoriesList"></div>
+                        <div class="category-dropdown-section">
+                            <button class="category-toggle-btn" id="categoryToggleBtn">
+                                <span id="categoryCountText">View Categories</span>
+                                <span class="toggle-arrow">▼</span>
+                            </button>
+                            <div class="category-list collapsed" id="categoryListContainer">
+                                <div id="categoriesList"></div>
+                            </div>
                         </div>
                         <button id="resetCategoriesBtn" class="btn btn-secondary">Reset to Default Categories</button>
                     </div>

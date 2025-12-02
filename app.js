@@ -81,6 +81,10 @@ class BillManagerApp {
     }
 
     setupEventListeners() {
+        // Update header date/time
+        this.updateHeaderDateTime();
+        setInterval(() => this.updateHeaderDateTime(), 1000);
+        
         // Burger menu
         const burgerMenu = document.getElementById('burgerMenu');
         const menuOverlay = document.getElementById('menuOverlay');
@@ -151,6 +155,30 @@ class BillManagerApp {
         // Category management
         document.getElementById('addCategoryBtn').addEventListener('click', () => this.addCategory());
         document.getElementById('resetCategoriesBtn').addEventListener('click', () => this.resetCategories());
+        document.getElementById('categoryToggleBtn').addEventListener('click', () => this.toggleCategoryList());
+        
+        // Header title click to go to Timeline
+        document.getElementById('appTitle').addEventListener('click', () => {
+            this.switchTab('timeline');
+            // Close mobile menu if open
+            if (window.innerWidth <= 768) {
+                const burgerMenu = document.getElementById('burgerMenu');
+                const mainTabs = document.getElementById('mainTabs');
+                const menuOverlay = document.getElementById('menuOverlay');
+                burgerMenu.classList.remove('active');
+                mainTabs.classList.remove('active');
+                menuOverlay.classList.remove('active');
+                document.body.style.overflow = '';
+            }
+        });
+    }
+
+    toggleCategoryList() {
+        const toggleBtn = document.getElementById('categoryToggleBtn');
+        const categoryList = document.getElementById('categoryListContainer');
+        
+        toggleBtn.classList.toggle('active');
+        categoryList.classList.toggle('collapsed');
     }
 
     switchTab(tabName) {
@@ -245,30 +273,50 @@ class BillManagerApp {
             statusBadge = '<span class="status-badge status-pending">Pending</span>';
         }
 
+        const frequencyIcon = {
+            'once': '🎯',
+            'weekly': '📅',
+            'bi-weekly': '📆',
+            'monthly': '🗓️',
+            'quarterly': '📊',
+            'yearly': '🎂'
+        }[bill.frequency] || '🔄';
+
+        const categoryIcon = '📁';
+        const statusIcon = bill.isPaid ? '✅' : (daysUntilDue < 0 ? '⚠️' : (daysUntilDue === 0 ? '🔔' : '⏰'));
+
         return `
             <div class="bill-card ${statusClass}" ${bill.isPaid ? `onclick="app.togglePaidBill(event, ${bill.id})"` : ''}>
-                <div class="bill-header">
-                    <div>
+                <div class="bill-card-row bill-header-row">
+                    <div class="bill-info-left">
                         <div class="bill-name">${bill.name}</div>
                         ${statusBadge}
                     </div>
                     <div class="bill-amount">${this.currencySymbol}${amount.toFixed(2)}</div>
                 </div>
-                <div class="bill-details">
-                    <div class="bill-detail">📅 ${dueDate.toLocaleDateString()}</div>
-                    <div class="bill-detail">🔄 ${this.formatFrequency(bill.frequency)}</div>
-                    <div class="bill-detail">📂 ${bill.category}</div>
-                    <div class="bill-detail">${statusText}</div>
+                <div class="bill-card-row bill-details-row">
+                    <div class="bill-detail-item">
+                        <span class="detail-icon">${statusIcon}</span>
+                        <span class="detail-text">${dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
+                    </div>
+                    <div class="bill-detail-item">
+                        <span class="detail-icon">${frequencyIcon}</span>
+                        <span class="detail-text">${this.formatFrequency(bill.frequency)}</span>
+                    </div>
+                    <div class="bill-detail-item">
+                        <span class="detail-icon">${categoryIcon}</span>
+                        <span class="detail-text">${bill.category}</span>
+                    </div>
                 </div>
-                ${bill.notes ? `<div class="bill-detail">📝 ${bill.notes}</div>` : ''}
-                <div class="bill-actions">
+                ${bill.notes ? `<div class="bill-card-row bill-notes-row"><span class="detail-icon">📝</span><span class="detail-text">${bill.notes}</span></div>` : ''}
+                <div class="bill-card-row bill-actions-row">
                     ${!bill.isPaid ? `
-                        <button class="btn btn-success btn-small" onclick="app.markAsPaid(${bill.id})">✓ Mark as Paid</button>
+                        <button class="btn-action btn-action-success" onclick="app.markAsPaid(${bill.id})" title="Mark as Paid">✓</button>
                     ` : `
-                        <button class="btn btn-secondary btn-small" onclick="event.stopPropagation(); app.markAsUnpaid(${bill.id})">↺ Mark as Unpaid</button>
+                        <button class="btn-action btn-action-secondary" onclick="event.stopPropagation(); app.markAsUnpaid(${bill.id})" title="Mark as Unpaid">↺</button>
                     `}
-                    <button class="btn btn-secondary btn-small" onclick="event.stopPropagation(); app.editBill(${bill.id})">✏️ Edit</button>
-                    <button class="btn btn-danger btn-small" onclick="event.stopPropagation(); app.deleteBill(${bill.id})">🗑️ Delete</button>
+                    <button class="btn-action btn-action-secondary" onclick="event.stopPropagation(); app.editBill(${bill.id})" title="Edit">✏️</button>
+                    <button class="btn-action btn-action-danger" onclick="event.stopPropagation(); app.deleteBill(${bill.id})" title="Delete">🗑️</button>
                 </div>
             </div>
         `;
@@ -662,6 +710,10 @@ class BillManagerApp {
     async loadCategoriesList() {
         const categories = await database.getCategories();
         const categoriesList = document.getElementById('categoriesList');
+        const categoryCountText = document.getElementById('categoryCountText');
+
+        // Update count text
+        categoryCountText.textContent = `View Categories (${categories.length})`;
 
         if (categories.length === 0) {
             categoriesList.innerHTML = '<p>No categories available</p>';
@@ -925,6 +977,25 @@ class BillManagerApp {
         notificationManager.stopPeriodicCheck();
 
         alert('Settings reset to defaults!');
+    }
+
+    updateHeaderDateTime() {
+        const dateTimeElement = document.getElementById('headerDateTime');
+        if (!dateTimeElement) return;
+        
+        const now = new Date();
+        const options = { 
+            weekday: 'short', 
+            year: 'numeric', 
+            month: 'short', 
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit',
+            second: '2-digit',
+            hour12: false
+        };
+        
+        dateTimeElement.textContent = now.toLocaleString('en-GB', options);
     }
 }
 
