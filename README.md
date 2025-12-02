@@ -240,9 +240,134 @@ Potential features for future versions:
 - Dark mode theme
 - Mobile app version
 
+## Hosting on GitHub Pages
+
+You can host this app for free on GitHub Pages and access it from anywhere:
+
+### Step 1: Create a GitHub Repository
+
+1. Go to [GitHub](https://github.com) and sign in (or create an account)
+2. Click the **+** icon in the top right and select **New repository**
+3. Enter a repository name (e.g., `bill-manager-pro`)
+4. Choose **Public** (required for free GitHub Pages)
+5. Click **Create repository**
+
+### Step 2: Upload Your Files
+
+**Option A: Using GitHub Web Interface**
+1. In your new repository, click **uploading an existing file**
+2. Drag and drop all the app files:
+   - `index.html`
+   - `styles.css`
+   - `app.js`
+   - `database.js`
+   - `notifications.js`
+   - `charts.js`
+   - `manifest.json`
+   - `service-worker.js`
+   - `pwa-handler.js`
+   - `LICENSE`
+   - `README.md`
+   - Any icon files (if generated)
+3. Click **Commit changes**
+
+**Option B: Using Git Command Line**
+```powershell
+# Navigate to your app folder
+cd C:\justeat\Temp\BillManagerPro
+
+# Initialize git repository
+git init
+
+# Add all files
+git add .
+
+# Commit the files
+git commit -m "Initial commit - Bill Manager Pro"
+
+# Add your GitHub repository as remote
+git remote add origin https://github.com/YOUR-USERNAME/bill-manager-pro.git
+
+# Push to GitHub
+git branch -M main
+git push -u origin main
+```
+
+### Step 3: Enable GitHub Pages
+
+1. In your GitHub repository, click **Settings**
+2. Scroll down to **Pages** section (left sidebar)
+3. Under **Source**, select:
+   - Branch: `main`
+   - Folder: `/ (root)`
+4. Click **Save**
+5. Wait 1-2 minutes for deployment
+
+### Step 4: Access Your App
+
+Your app will be available at:
+```
+https://YOUR-USERNAME.github.io/bill-manager-pro/
+```
+
+For example: `https://rajeshbellamkonda.github.io/bill-manager-pro/`
+
+### Step 5: Install as PWA on Mobile
+
+1. Open the GitHub Pages URL on your Android phone (Chrome browser)
+2. The app will prompt you to install it
+3. Or tap the three dots menu → **Install app**
+4. The app will be added to your home screen!
+
+### Updating Your App
+
+Whenever you make changes:
+
+**Using Web Interface:**
+1. Go to your repository
+2. Click on the file to edit
+3. Click the pencil icon (Edit)
+4. Make changes and commit
+
+**Using Git:**
+```powershell
+git add .
+git commit -m "Description of changes"
+git push
+```
+
+Changes will be live in 1-2 minutes!
+
+### Custom Domain (Optional)
+
+1. Buy a domain from any registrar
+2. In repository Settings → Pages → Custom domain
+3. Enter your domain (e.g., `bills.yourdomain.com`)
+4. Configure DNS with your registrar:
+   - Add CNAME record pointing to `YOUR-USERNAME.github.io`
+5. Enable **Enforce HTTPS**
+
+### Troubleshooting
+
+**Issue: Service Worker not working**
+- GitHub Pages uses HTTPS automatically, so PWA features work
+- Clear browser cache and reload
+
+**Issue: Icons not showing**
+- Make sure all icon files are uploaded
+- Check file paths in `manifest.json` are correct
+- Use `generate-icons.html` to create missing icons
+
+**Issue: 404 Error**
+- Wait 2-3 minutes after enabling Pages
+- Check repository is Public
+- Verify files are in the root directory (not in a subfolder)
+
 ## License
 
-Free to use for personal purposes. Modify as needed for your own use.
+MIT License - Copyright (c) 2025 Rajesh Bellamkonda
+
+See [LICENSE](LICENSE) file for full details. This is open source software, free to use, modify, and distribute.
 
 ## Support
 
@@ -250,6 +375,11 @@ This is an open-source project. For issues or questions:
 1. Check this README for solutions
 2. Review browser console for errors
 3. Ensure you're using a modern browser
+4. Open an issue on GitHub
+
+## Credits
+
+Developed by **Rajesh Bellamkonda**
 
 ---
 
