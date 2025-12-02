@@ -206,6 +206,17 @@ class BillManagerApp {
         
         // Delete all data
         document.getElementById('deleteAllDataBtn').addEventListener('click', () => this.deleteAllData());
+        
+        // Monthly credit
+        document.getElementById('saveCreditBtn').addEventListener('click', () => this.saveMonthlyCredit());
+        document.getElementById('monthlyCredit').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                this.saveMonthlyCredit();
+            }
+        });
+        
+        // Toggle balances section
+        document.getElementById('toggleBalancesBtn').addEventListener('click', () => this.toggleBalances());
     }
 
     toggleCategoryList() {
@@ -254,8 +265,89 @@ class BillManagerApp {
         document.getElementById('currentMonth').textContent = 
             this.currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
+        // Load monthly credit
+        const creditKey = `monthlyCredit_${year}_${month}`;
+        const savedCredit = await database.getSetting(creditKey);
+        document.getElementById('monthlyCredit').value = savedCredit || '';
+
         // Get bills for this month
         const bills = await database.getBillsByMonth(year, month);
+        
+        // Calculate unpaid total
+        const unpaidBills = bills.filter(bill => !bill.isPaid);
+        const unpaidTotal = unpaidBills.reduce((sum, bill) => {
+            const amount = typeof bill.amount === 'number' ? bill.amount : parseFloat(bill.amount) || 0;
+            return sum + amount;
+        }, 0);
+        
+        // Update unpaid total display
+        const unpaidTotalEl = document.getElementById('unpaidTotal');
+        if (unpaidBills.length > 0) {
+            unpaidTotalEl.textContent = `Unpaid: ${this.currencySymbol}${unpaidTotal.toFixed(2)}`;
+            unpaidTotalEl.style.display = 'block';
+        } else {
+            unpaidTotalEl.style.display = 'none';
+        }
+        
+        // Calculate and display balance difference
+        const credit = parseFloat(savedCredit) || 0;
+        const balanceDiffEl = document.getElementById('balanceDifference');
+        const creditCoverageEl = document.getElementById('creditCoverage');
+        
+        if (credit > 0 || unpaidTotal > 0) {
+            const difference = credit - unpaidTotal;
+            balanceDiffEl.style.display = 'block';
+            
+            if (difference >= 0) {
+                balanceDiffEl.innerHTML = `<span class="balance-surplus">Balance: +${this.currencySymbol}${difference.toFixed(2)}</span>`;
+            } else {
+                balanceDiffEl.innerHTML = `<span class="balance-deficit">Balance: ${this.currencySymbol}${difference.toFixed(2)}</span>`;
+            }
+            
+            // Calculate credit coverage - how far credit can cover unpaid bills
+            if (credit > 0 && unpaidBills.length > 0) {
+                // Sort unpaid bills by due date
+                const sortedUnpaidBills = unpaidBills.sort((a, b) => 
+                    new Date(a.dueDate) - new Date(b.dueDate)
+                );
+                
+                let remainingCredit = credit;
+                let coveredUntilDate = null;
+                let billsCovered = 0;
+                
+                for (const bill of sortedUnpaidBills) {
+                    const billAmount = typeof bill.amount === 'number' ? bill.amount : parseFloat(bill.amount) || 0;
+                    if (remainingCredit >= billAmount) {
+                        remainingCredit -= billAmount;
+                        coveredUntilDate = new Date(bill.dueDate);
+                        billsCovered++;
+                    } else {
+                        break;
+                    }
+                }
+                
+                if (coveredUntilDate) {
+                    const coverageText = coveredUntilDate.toLocaleDateString('en-US', { 
+                        month: 'short', 
+                        day: 'numeric',
+                        year: coveredUntilDate.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined
+                    });
+                    creditCoverageEl.innerHTML = `<span class="credit-coverage-info">💰 Credit covers ${billsCovered} bill${billsCovered > 1 ? 's' : ''} until ${coverageText}</span>`;
+                    creditCoverageEl.style.display = 'block';
+                } else {
+                    creditCoverageEl.innerHTML = `<span class="credit-coverage-info credit-insufficient">⚠️ Credit insufficient to cover any bills</span>`;
+                    creditCoverageEl.style.display = 'block';
+                }
+            } else if (credit > 0 && unpaidBills.length === 0) {
+                creditCoverageEl.innerHTML = `<span class="credit-coverage-info">✅ No unpaid bills to cover</span>`;
+                creditCoverageEl.style.display = 'block';
+            } else {
+                creditCoverageEl.style.display = 'none';
+            }
+        } else {
+            balanceDiffEl.style.display = 'none';
+            creditCoverageEl.style.display = 'none';
+        }
         
         const timeline = document.getElementById('billsTimeline');
         
@@ -321,6 +413,7 @@ class BillManagerApp {
                             <span class="bill-meta-item"><span class="meta-icon">${frequencyIcon}</span>${this.formatFrequency(bill.frequency)}</span>
                             ${bill.category ? `<span class="bill-meta-item"><span class="meta-icon">📁</span>${bill.category}</span>` : ''}
                         </div>
+                        ${bill.notes ? `<div class="bill-notes-preview"><span class="meta-icon">📝</span>${bill.notes}</div>` : ''}
                     </div>
                     <div class="bill-amount-section">
                         <div class="bill-amount">${this.currencySymbol}${amount.toFixed(2)}</div>
@@ -347,12 +440,6 @@ class BillManagerApp {
                         <span class="btn-icon">🗑️</span>
                         <span class="btn-label">Delete</span>
                     </button>
-                    ${bill.notes ? `
-                        <button class="btn-action btn-action-info" onclick="event.stopPropagation(); alert('${bill.notes.replace(/'/g, "\\'")}');" title="View Notes">
-                            <span class="btn-icon">📝</span>
-                            <span class="btn-label">Notes</span>
-                        </button>
-                    ` : ''}
                 </div>
             </div>
         `;
@@ -1358,6 +1445,128 @@ class BillManagerApp {
         } catch (error) {
             console.error('Delete error:', error);
             alert('Failed to delete data. Please try again.');
+        }
+    }
+
+    async saveMonthlyCredit() {
+        const year = this.currentMonth.getFullYear();
+        const month = this.currentMonth.getMonth();
+        const creditValue = parseFloat(document.getElementById('monthlyCredit').value) || 0;
+        
+        const creditKey = `monthlyCredit_${year}_${month}`;
+        
+        try {
+            await database.saveSetting(creditKey, creditValue);
+            
+            // Recalculate balance difference and credit coverage
+            await this.updateBalanceCalculations();
+            
+            // Show success feedback
+            const saveBtn = document.getElementById('saveCreditBtn');
+            const originalText = saveBtn.textContent;
+            saveBtn.textContent = '✓';
+            saveBtn.style.background = '#4CAF50';
+            
+            setTimeout(() => {
+                saveBtn.textContent = originalText;
+                saveBtn.style.background = '';
+            }, 1500);
+        } catch (error) {
+            console.error('Error saving credit:', error);
+            alert('Failed to save credit. Please try again.');
+        }
+    }
+
+    async updateBalanceCalculations() {
+        const year = this.currentMonth.getFullYear();
+        const month = this.currentMonth.getMonth();
+        
+        // Get current credit value
+        const creditValue = parseFloat(document.getElementById('monthlyCredit').value) || 0;
+        
+        // Get bills for this month
+        const bills = await database.getBillsByMonth(year, month);
+        const unpaidBills = bills.filter(bill => !bill.isPaid);
+        const unpaidTotal = unpaidBills.reduce((sum, bill) => {
+            const amount = typeof bill.amount === 'number' ? bill.amount : parseFloat(bill.amount) || 0;
+            return sum + amount;
+        }, 0);
+        
+        // Calculate and display balance difference
+        const balanceDiffEl = document.getElementById('balanceDifference');
+        const creditCoverageEl = document.getElementById('creditCoverage');
+        
+        if (creditValue > 0 || unpaidTotal > 0) {
+            const difference = creditValue - unpaidTotal;
+            balanceDiffEl.style.display = 'block';
+            
+            if (difference >= 0) {
+                balanceDiffEl.innerHTML = `<span class="balance-surplus">Balance: +${this.currencySymbol}${difference.toFixed(2)}</span>`;
+            } else {
+                balanceDiffEl.innerHTML = `<span class="balance-deficit">Balance: ${this.currencySymbol}${difference.toFixed(2)}</span>`;
+            }
+            
+            // Calculate credit coverage - how far credit can cover unpaid bills
+            if (creditValue > 0 && unpaidBills.length > 0) {
+                // Sort unpaid bills by due date
+                const sortedUnpaidBills = unpaidBills.sort((a, b) => 
+                    new Date(a.dueDate) - new Date(b.dueDate)
+                );
+                
+                let remainingCredit = creditValue;
+                let coveredUntilDate = null;
+                let billsCovered = 0;
+                
+                for (const bill of sortedUnpaidBills) {
+                    const billAmount = typeof bill.amount === 'number' ? bill.amount : parseFloat(bill.amount) || 0;
+                    if (remainingCredit >= billAmount) {
+                        remainingCredit -= billAmount;
+                        coveredUntilDate = new Date(bill.dueDate);
+                        billsCovered++;
+                    } else {
+                        break;
+                    }
+                }
+                
+                if (coveredUntilDate) {
+                    const coverageText = coveredUntilDate.toLocaleDateString('en-US', { 
+                        month: 'short', 
+                        day: 'numeric',
+                        year: coveredUntilDate.getFullYear() !== new Date().getFullYear() ? 'numeric' : undefined
+                    });
+                    creditCoverageEl.innerHTML = `<span class="credit-coverage-info">💰 Credit covers ${billsCovered} bill${billsCovered > 1 ? 's' : ''} until ${coverageText}</span>`;
+                    creditCoverageEl.style.display = 'block';
+                } else {
+                    creditCoverageEl.innerHTML = `<span class="credit-coverage-info credit-insufficient">⚠️ Credit insufficient to cover any bills</span>`;
+                    creditCoverageEl.style.display = 'block';
+                }
+            } else if (creditValue > 0 && unpaidBills.length === 0) {
+                creditCoverageEl.innerHTML = `<span class="credit-coverage-info">✅ No unpaid bills to cover</span>`;
+                creditCoverageEl.style.display = 'block';
+            } else {
+                creditCoverageEl.style.display = 'none';
+            }
+        } else {
+            balanceDiffEl.style.display = 'none';
+            creditCoverageEl.style.display = 'none';
+        }
+    }
+
+    toggleBalances() {
+        const toggleBtn = document.getElementById('toggleBalancesBtn');
+        const balancesSection = document.getElementById('balancesSection');
+        const toggleText = document.getElementById('balancesToggleText');
+        const arrow = toggleBtn.querySelector('.toggle-arrow');
+        
+        toggleBtn.classList.toggle('active');
+        balancesSection.classList.toggle('collapsed');
+        
+        if (balancesSection.classList.contains('collapsed')) {
+            toggleText.textContent = 'Show Balances';
+            arrow.textContent = '▼';
+        } else {
+            toggleText.textContent = 'Hide Balances';
+            arrow.textContent = '▲';
         }
     }
 }

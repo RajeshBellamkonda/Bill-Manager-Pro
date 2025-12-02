@@ -431,9 +431,219 @@ header h1 {
     }
 }
 
+.timeline-header-center {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+}
+
 .timeline-header h2 {
     font-size: 1.8rem;
     color: var(--text-primary);
+    margin: 0;
+}
+
+.unpaid-total {
+    font-size: 1rem;
+    font-weight: 600;
+    color: #d32f2f;
+    padding: 4px 12px;
+    background: rgba(211, 47, 47, 0.1);
+    border-radius: 16px;
+    white-space: nowrap;
+}
+
+.toggle-balances-btn {
+    background: var(--card-bg);
+    border: 2px solid var(--border-color);
+    border-radius: 8px;
+    padding: 8px 16px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    transition: all 0.3s;
+    margin-top: 8px;
+}
+
+.toggle-balances-btn:hover {
+    border-color: var(--primary-color);
+    background: var(--bg-color);
+}
+
+.toggle-balances-btn .toggle-arrow {
+    transition: transform 0.3s;
+    font-size: 0.8rem;
+}
+
+.toggle-balances-btn.active .toggle-arrow {
+    transform: rotate(180deg);
+}
+
+.balances-section {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px 16px;
+    margin-top: 12px;
+    padding: 16px 20px;
+    background: linear-gradient(135deg, rgba(255,255,255,0.9), rgba(255,255,255,0.7));
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.3);
+    border-radius: 12px;
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+    max-height: 300px;
+    overflow: hidden;
+    transition: max-height 0.4s cubic-bezier(0.4, 0, 0.2, 1), 
+                padding 0.4s cubic-bezier(0.4, 0, 0.2, 1), 
+                margin 0.4s cubic-bezier(0.4, 0, 0.2, 1),
+                opacity 0.3s ease;
+}
+
+.balances-section.collapsed {
+    max-height: 0;
+    padding: 0 20px;
+    margin-top: 0;
+    opacity: 0;
+    overflow: hidden;
+}
+
+.balance-item {
+    grid-column: 1 / -1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    padding: 8px 12px;
+    background: rgba(255,255,255,0.5);
+    border-radius: 8px;
+}
+
+.balance-label {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-primary);
+    white-space: nowrap;
+}
+
+.balance-input {
+    width: 120px;
+    padding: 6px 12px;
+    border: 2px solid rgba(76, 175, 80, 0.3);
+    border-radius: 6px;
+    font-size: 0.95rem;
+    background: white;
+    transition: all 0.3s ease;
+}
+
+.balance-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+}
+
+.balances-section .unpaid-total {
+    padding: 10px 14px;
+    background: linear-gradient(135deg, rgba(231, 76, 60, 0.1), rgba(231, 76, 60, 0.05));
+    border-left: 3px solid #e74c3c;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: #c0392b;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.balance-difference {
+    padding: 10px 14px;
+    background: rgba(255,255,255,0.6);
+    border-radius: 6px;
+    font-size: 0.9rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.balance-surplus {
+    color: #27ae60;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 700;
+}
+
+.balance-surplus::before {
+    content: '✓';
+    font-size: 1.1rem;
+}
+
+.balance-deficit {
+    color: #e74c3c;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 700;
+}
+
+.balance-deficit::before {
+    content: '⚠';
+    font-size: 1.1rem;
+}
+
+.credit-coverage {
+    grid-column: 1 / -1;
+    padding: 10px 14px;
+    background: linear-gradient(135deg, rgba(52, 152, 219, 0.1), rgba(52, 152, 219, 0.05));
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.credit-coverage-info {
+    font-size: 0.85rem;
+    color: #2980b9;
+    font-weight: 600;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.credit-coverage-info.credit-insufficient {
+    color: #e67e22;
+}
+
+@media (max-width: 768px) {
+    .timeline-header {
+        flex-wrap: wrap;
+        gap: 12px;
+    }
+    
+    .timeline-header-center {
+        gap: 6px;
+        order: -1;
+        width: 100%;
+    }
+    
+    .balance-item {
+        flex-wrap: wrap;
+        justify-content: center;
+    }
+    
+    .balance-input {
+        flex: 1;
+        max-width: 150px;
+    }
+    
+    .unpaid-total {
+        font-size: 0.9rem;
+        padding: 3px 10px;
+    }
 }
 
 .quick-add-btn {
@@ -557,6 +767,25 @@ header h1 {
     overflow: hidden;
     text-overflow: ellipsis;
     white-space: nowrap;
+}
+
+.bill-notes-preview {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    margin: 6px 0;
+    padding: 6px 10px;
+    background: rgba(0, 0, 0, 0.03);
+    border-left: 3px solid var(--primary-color);
+    border-radius: 4px;
+    display: flex;
+    align-items: flex-start;
+    gap: 6px;
+    line-height: 1.4;
+}
+
+.bill-notes-preview .meta-icon {
+    margin-top: 2px;
+    flex-shrink: 0;
 }
 
 .bill-meta {
@@ -1196,10 +1425,10 @@ header h1 {
 }
 
 .btn-icon-small {
-    padding: 10px 14px;
+    padding: 6px 10px;
     border: none;
-    border-radius: 6px;
-    font-size: 1.1rem;
+    border-radius: 4px;
+    font-size: 0.9rem;
     font-weight: 600;
     cursor: pointer;
     transition: all 0.3s ease;
@@ -2006,14 +2235,65 @@ body[data-theme="blue"] {
     --secondary-color: #00BCD4;
 }
 
+body[data-theme="blue"] .balances-section {
+    background: linear-gradient(135deg, rgba(33, 150, 243, 0.15), rgba(0, 188, 212, 0.1));
+}
+
+body[data-theme="blue"] .balance-item {
+    background: rgba(33, 150, 243, 0.08);
+}
+
+body[data-theme="blue"] .balance-input {
+    border-color: rgba(33, 150, 243, 0.3);
+}
+
+body[data-theme="blue"] .balance-input:focus {
+    border-color: #2196F3;
+    box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.1);
+}
+
 body[data-theme="purple"] {
     --primary-color: #9C27B0;
     --secondary-color: #E91E63;
 }
 
+body[data-theme="purple"] .balances-section {
+    background: linear-gradient(135deg, rgba(156, 39, 176, 0.15), rgba(233, 30, 99, 0.1));
+}
+
+body[data-theme="purple"] .balance-item {
+    background: rgba(156, 39, 176, 0.08);
+}
+
+body[data-theme="purple"] .balance-input {
+    border-color: rgba(156, 39, 176, 0.3);
+}
+
+body[data-theme="purple"] .balance-input:focus {
+    border-color: #9C27B0;
+    box-shadow: 0 0 0 3px rgba(156, 39, 176, 0.1);
+}
+
 body[data-theme="orange"] {
     --primary-color: #FF9800;
     --secondary-color: #FF5722;
+}
+
+body[data-theme="orange"] .balances-section {
+    background: linear-gradient(135deg, rgba(255, 152, 0, 0.15), rgba(255, 87, 34, 0.1));
+}
+
+body[data-theme="orange"] .balance-item {
+    background: rgba(255, 152, 0, 0.08);
+}
+
+body[data-theme="orange"] .balance-input {
+    border-color: rgba(255, 152, 0, 0.3);
+}
+
+body[data-theme="orange"] .balance-input:focus {
+    border-color: #FF9800;
+    box-shadow: 0 0 0 3px rgba(255, 152, 0, 0.1);
 }
 
 body[data-theme="dark"] {
@@ -2026,6 +2306,39 @@ body[data-theme="dark"] {
     --border-color: #404040;
     --shadow: 0 2px 8px rgba(0,0,0,0.4);
     --shadow-hover: 0 4px 12px rgba(0,0,0,0.6);
+}
+
+body[data-theme="dark"] .balances-section {
+    background: linear-gradient(135deg, rgba(76, 175, 80, 0.15), rgba(33, 150, 243, 0.1));
+    border-color: rgba(255, 255, 255, 0.1);
+}
+
+body[data-theme="dark"] .balance-item {
+    background: rgba(76, 175, 80, 0.1);
+}
+
+body[data-theme="dark"] .balance-input {
+    background: #1a1a1a;
+    color: #e0e0e0;
+    border-color: rgba(76, 175, 80, 0.3);
+}
+
+body[data-theme="dark"] .balance-input:focus {
+    border-color: #4CAF50;
+    box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.15);
+}
+
+body[data-theme="dark"] .balances-section .unpaid-total {
+    background: linear-gradient(135deg, rgba(231, 76, 60, 0.2), rgba(231, 76, 60, 0.1));
+    color: #ff6b6b;
+}
+
+body[data-theme="dark"] .balance-difference {
+    background: rgba(255, 255, 255, 0.05);
+}
+
+body[data-theme="dark"] .credit-coverage {
+    background: linear-gradient(135deg, rgba(52, 152, 219, 0.2), rgba(52, 152, 219, 0.1));
 }
 
 body[data-theme="dark"] .bill-card {
