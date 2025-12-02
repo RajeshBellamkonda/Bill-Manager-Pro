@@ -203,6 +203,9 @@ class BillManagerApp {
         document.getElementById('addNewCurrencyBtn').addEventListener('click', () => this.showNewCurrencyInput());
         document.getElementById('saveNewCurrencyBtn').addEventListener('click', () => this.saveNewCurrency());
         document.getElementById('cancelNewCurrencyBtn').addEventListener('click', () => this.hideNewCurrencyInput());
+        
+        // Delete all data
+        document.getElementById('deleteAllDataBtn').addEventListener('click', () => this.deleteAllData());
     }
 
     toggleCategoryList() {
@@ -1204,14 +1207,31 @@ class BillManagerApp {
                 return;
             }
             
+            // Get existing IDs to avoid duplicates
+            const existingBills = await database.getAllBills();
+            const existingBillIds = new Set(existingBills.map(b => b.id));
+            
+            const existingTemplates = await database.getAllTemplates();
+            const existingTemplateIds = new Set(existingTemplates.map(t => t.id));
+            
+            const existingProfiles = await database.getAllProfiles();
+            const existingProfileIds = new Set(existingProfiles.map(p => p.id));
+            
             // Import profiles first
-            if (importData.profiles) {
-                for (const profile of importData.profiles) {
-                    const existing = await database.getProfile(profile.id);
-                    if (!existing) {
-                        await database.db.add('profiles', profile);
+            if (importData.profiles && importData.profiles.length > 0) {
+                await new Promise((resolve, reject) => {
+                    const transaction = database.db.transaction(['profiles'], 'readwrite');
+                    const store = transaction.objectStore('profiles');
+                    
+                    for (const profile of importData.profiles) {
+                        if (!existingProfileIds.has(profile.id)) {
+                            store.add(profile);
+                        }
                     }
-                }
+                    
+                    transaction.oncomplete = () => resolve();
+                    transaction.onerror = () => reject(transaction.error);
+                });
             }
             
             // Import categories
@@ -1220,23 +1240,37 @@ class BillManagerApp {
             }
             
             // Import bills
-            if (importData.bills) {
-                for (const bill of importData.bills) {
-                    const existing = await database.getBill(bill.id);
-                    if (!existing) {
-                        await database.db.add('bills', bill);
+            if (importData.bills && importData.bills.length > 0) {
+                await new Promise((resolve, reject) => {
+                    const transaction = database.db.transaction(['bills'], 'readwrite');
+                    const store = transaction.objectStore('bills');
+                    
+                    for (const bill of importData.bills) {
+                        if (!existingBillIds.has(bill.id)) {
+                            store.add(bill);
+                        }
                     }
-                }
+                    
+                    transaction.oncomplete = () => resolve();
+                    transaction.onerror = () => reject(transaction.error);
+                });
             }
             
             // Import templates
-            if (importData.templates) {
-                for (const template of importData.templates) {
-                    const existing = await database.getTemplate(template.id);
-                    if (!existing) {
-                        await database.db.add('templates', template);
+            if (importData.templates && importData.templates.length > 0) {
+                await new Promise((resolve, reject) => {
+                    const transaction = database.db.transaction(['templates'], 'readwrite');
+                    const store = transaction.objectStore('templates');
+                    
+                    for (const template of importData.templates) {
+                        if (!existingTemplateIds.has(template.id)) {
+                            store.add(template);
+                        }
                     }
-                }
+                    
+                    transaction.oncomplete = () => resolve();
+                    transaction.onerror = () => reject(transaction.error);
+                });
             }
             
             // Import settings (selective)
@@ -1259,6 +1293,72 @@ class BillManagerApp {
         
         // Reset file input
         event.target.value = '';
+    }
+
+    async deleteAllData() {
+        const confirmed = confirm('⚠️ WARNING: This will permanently delete ALL data for the current profile!\n\nThis includes:\n- All bills\n- All templates\n- All settings\n\nThis action CANNOT be undone!\n\nWould you like to export a backup first?');
+        
+        if (!confirmed) {
+            return;
+        }
+        
+        // Prompt to export backup first
+        const exportFirst = confirm('Do you want to export your data as a backup before deleting?\n\nClick OK to export first, or Cancel to proceed with deletion without backup.');
+        
+        if (exportFirst) {
+            await this.exportData();
+            
+            // Give user time to save the export, then ask again
+            const proceedWithDelete = confirm('Backup exported. Do you still want to proceed with deleting all data?');
+            if (!proceedWithDelete) {
+                return;
+            }
+        }
+        
+        // Final confirmation
+        const finalConfirm = confirm('FINAL CONFIRMATION:\n\nAre you absolutely sure you want to delete all data?\n\nType YES in the next prompt to confirm.');
+        if (!finalConfirm) {
+            return;
+        }
+        
+        const typedConfirmation = prompt('Type "DELETE" (in capital letters) to confirm deletion:');
+        if (typedConfirmation !== 'DELETE') {
+            alert('Deletion cancelled. The text did not match.');
+            return;
+        }
+        
+        try {
+            const currentProfileId = database.getCurrentProfile();
+            
+            // Delete all bills for current profile
+            const bills = await database.getAllBills();
+            for (const bill of bills) {
+                await database.deleteBill(bill.id);
+            }
+            
+            // Delete all templates for current profile
+            const templates = await database.getAllTemplates();
+            for (const template of templates) {
+                await database.deleteTemplate(template.id);
+            }
+            
+            // Reset settings to defaults
+            await database.saveSetting('currency', '£');
+            await database.saveSetting('theme', 'default');
+            await database.saveSetting('notificationsEnabled', false);
+            await database.saveSetting('categories', [
+                'Utilities', 'Rent/Mortgage', 'Insurance', 'Subscriptions', 
+                'Internet/Phone', 'Credit Card', 'Loan', 'Other'
+            ]);
+            
+            alert('All data has been deleted successfully!');
+            
+            // Reload the page
+            location.reload();
+        } catch (error) {
+            console.error('Delete error:', error);
+            alert('Failed to delete data. Please try again.');
+        }
     }
 }
 

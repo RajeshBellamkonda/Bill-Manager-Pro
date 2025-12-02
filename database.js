@@ -156,6 +156,10 @@ class BillDatabase {
         });
     }
 
+    async getBill(id) {
+        return this.getBillById(id);
+    }
+
     async getAllBills() {
         const transaction = this.db.transaction(['bills'], 'readonly');
         const store = transaction.objectStore('bills');
