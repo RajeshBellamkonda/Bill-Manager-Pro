@@ -173,6 +173,24 @@ class BillManagerApp {
                 document.body.style.overflow = '';
             }
         });
+
+        // Scroll to top button
+        const scrollToTopBtn = document.getElementById('scrollToTopBtn');
+        scrollToTopBtn.addEventListener('click', () => {
+            window.scrollTo({
+                top: 0,
+                behavior: 'smooth'
+            });
+        });
+
+        // Show/hide scroll to top button based on scroll position
+        window.addEventListener('scroll', () => {
+            if (window.scrollY > 300) {
+                scrollToTopBtn.classList.add('visible');
+            } else {
+                scrollToTopBtn.classList.remove('visible');
+            }
+        });
         
         // Quick add bill button
         document.getElementById('quickAddBillBtn').addEventListener('click', () => {
@@ -1539,20 +1557,31 @@ class BillManagerApp {
             }
             
             // Confirm import
-            const confirmed = confirm(`Import data from backup dated ${new Date(importData.exportDate).toLocaleDateString()}?\n\nThis will merge with your existing data.`);
+            const confirmed = confirm(`Import data from backup dated ${new Date(importData.exportDate).toLocaleDateString()}?\n\n⚠️ WARNING: This will DELETE ALL existing profiles and data, then import the backup.\n\nAre you sure you want to continue?`);
             if (!confirmed) {
                 event.target.value = '';
                 return;
             }
             
-            // Get existing data to handle profile mapping
-            const existingBills = await database.getAllBillsAllProfiles();
-            const existingBillIds = new Set(existingBills.map(b => b.id));
-            
-            const existingTemplates = await database.getAllTemplatesAllProfiles();
-            const existingTemplateIds = new Set(existingTemplates.map(t => t.id));
-            
+            // Delete all existing profiles (which will cascade delete bills and templates)
             const existingProfiles = await database.getAllProfiles();
+            for (const profile of existingProfiles) {
+                await database.deleteProfile(profile.id);
+            }
+            
+            // Clear all settings except theme preference
+            const savedTheme = await database.getSetting('theme');
+            const settingsTransaction = database.db.transaction(['settings'], 'readwrite');
+            const settingsStore = settingsTransaction.objectStore('settings');
+            await new Promise((resolve) => {
+                settingsStore.clear();
+                settingsTransaction.oncomplete = () => resolve();
+            });
+            
+            // Restore theme
+            if (savedTheme) {
+                await database.saveSetting('theme', savedTheme);
+            }
             
             // Create profile ID mapping (old ID -> new ID)
             const profileIdMap = new Map();
@@ -1560,17 +1589,9 @@ class BillManagerApp {
             // Import profiles first and create mapping
             if (importData.profiles && importData.profiles.length > 0) {
                 for (const importProfile of importData.profiles) {
-                    // Check if profile with same name already exists
-                    const existingProfile = existingProfiles.find(p => p.name === importProfile.name);
-                    
-                    if (existingProfile) {
-                        // Use existing profile's ID
-                        profileIdMap.set(importProfile.id, existingProfile.id);
-                    } else {
-                        // Create new profile
-                        const newProfileId = await database.createProfile(importProfile.name);
-                        profileIdMap.set(importProfile.id, newProfileId);
-                    }
+                    // Create new profile with original name
+                    const newProfileId = await database.createProfile(importProfile.name);
+                    profileIdMap.set(importProfile.id, newProfileId);
                 }
             }
             
@@ -1586,14 +1607,12 @@ class BillManagerApp {
                     const store = transaction.objectStore('bills');
                     
                     for (const bill of importData.bills) {
-                        if (!existingBillIds.has(bill.id)) {
-                            // Map the profile ID to the correct one
-                            const mappedBill = { ...bill };
-                            if (profileIdMap.has(bill.profileId)) {
-                                mappedBill.profileId = profileIdMap.get(bill.profileId);
-                            }
-                            store.add(mappedBill);
+                        // Map the profile ID to the correct one
+                        const mappedBill = { ...bill };
+                        if (profileIdMap.has(bill.profileId)) {
+                            mappedBill.profileId = profileIdMap.get(bill.profileId);
                         }
+                        store.add(mappedBill);
                     }
                     
                     transaction.oncomplete = () => resolve();
@@ -1608,14 +1627,12 @@ class BillManagerApp {
                     const store = transaction.objectStore('templates');
                     
                     for (const template of importData.templates) {
-                        if (!existingTemplateIds.has(template.id)) {
-                            // Map the profile ID to the correct one
-                            const mappedTemplate = { ...template };
-                            if (profileIdMap.has(template.profileId)) {
-                                mappedTemplate.profileId = profileIdMap.get(template.profileId);
-                            }
-                            store.add(mappedTemplate);
+                        // Map the profile ID to the correct one
+                        const mappedTemplate = { ...template };
+                        if (profileIdMap.has(template.profileId)) {
+                            mappedTemplate.profileId = profileIdMap.get(template.profileId);
                         }
+                        store.add(mappedTemplate);
                     }
                     
                     transaction.oncomplete = () => resolve();
@@ -1623,16 +1640,24 @@ class BillManagerApp {
                 });
             }
             
-            // Import settings (selective)
+            // Import all settings
             if (importData.settings) {
                 for (const setting of importData.settings) {
-                    if (setting.key !== 'currentProfileId') {
+                    // Skip currentProfileId, we'll set it to the first imported profile
+                    if (setting.key !== 'currentProfileId' && setting.key !== 'theme') {
                         await database.saveSetting(setting.key, setting.value);
                     }
                 }
             }
             
-            alert(`Data imported successfully!\n\nImported:\n- ${importData.bills?.length || 0} bills\n- ${importData.templates?.length || 0} templates\n- ${importData.profiles?.length || 0} profiles`);
+            // Set current profile to the first imported profile
+            const newProfiles = await database.getAllProfiles();
+            if (newProfiles.length > 0) {
+                database.setCurrentProfile(newProfiles[0].id);
+                await database.saveSetting('currentProfileId', newProfiles[0].id);
+            }
+            
+            alert(`Data imported successfully!\n\n✅ All existing data was deleted\n\nImported:\n- ${importData.bills?.length || 0} bills\n- ${importData.templates?.length || 0} templates\n- ${importData.profiles?.length || 0} profiles`);
             
             // Reload the page to reflect changes
             location.reload();
