@@ -1240,9 +1240,9 @@ class BillManagerApp {
 
     async exportData() {
         try {
-            // Get all data from database
-            const bills = await database.getAllBills();
-            const templates = await database.getAllTemplates();
+            // Get all data from database - across all profiles
+            const bills = await database.getAllBillsAllProfiles();
+            const templates = await database.getAllTemplatesAllProfiles();
             const profiles = await database.getAllProfiles();
             const categories = await database.getCategories();
             const settings = await database.getAllSettings();
@@ -1263,7 +1263,12 @@ class BillManagerApp {
             const url = URL.createObjectURL(blob);
             const link = document.createElement('a');
             link.href = url;
-            link.download = `billmanager-backup-${new Date().toISOString().split('T')[0]}.json`;
+            
+            // Create filename with date and time stamp
+            const now = new Date();
+            const timestamp = now.toISOString().replace(/:/g, '-').replace(/\..+/, '');
+            link.download = `billmanager-backup-${timestamp}.json`;
+            
             document.body.appendChild(link);
             link.click();
             document.body.removeChild(link);
@@ -1295,31 +1300,33 @@ class BillManagerApp {
                 return;
             }
             
-            // Get existing IDs to avoid duplicates
-            const existingBills = await database.getAllBills();
+            // Get existing data to handle profile mapping
+            const existingBills = await database.getAllBillsAllProfiles();
             const existingBillIds = new Set(existingBills.map(b => b.id));
             
-            const existingTemplates = await database.getAllTemplates();
+            const existingTemplates = await database.getAllTemplatesAllProfiles();
             const existingTemplateIds = new Set(existingTemplates.map(t => t.id));
             
             const existingProfiles = await database.getAllProfiles();
-            const existingProfileIds = new Set(existingProfiles.map(p => p.id));
             
-            // Import profiles first
+            // Create profile ID mapping (old ID -> new ID)
+            const profileIdMap = new Map();
+            
+            // Import profiles first and create mapping
             if (importData.profiles && importData.profiles.length > 0) {
-                await new Promise((resolve, reject) => {
-                    const transaction = database.db.transaction(['profiles'], 'readwrite');
-                    const store = transaction.objectStore('profiles');
+                for (const importProfile of importData.profiles) {
+                    // Check if profile with same name already exists
+                    const existingProfile = existingProfiles.find(p => p.name === importProfile.name);
                     
-                    for (const profile of importData.profiles) {
-                        if (!existingProfileIds.has(profile.id)) {
-                            store.add(profile);
-                        }
+                    if (existingProfile) {
+                        // Use existing profile's ID
+                        profileIdMap.set(importProfile.id, existingProfile.id);
+                    } else {
+                        // Create new profile
+                        const newProfileId = await database.createProfile(importProfile.name);
+                        profileIdMap.set(importProfile.id, newProfileId);
                     }
-                    
-                    transaction.oncomplete = () => resolve();
-                    transaction.onerror = () => reject(transaction.error);
-                });
+                }
             }
             
             // Import categories
@@ -1327,7 +1334,7 @@ class BillManagerApp {
                 await database.saveSetting('categories', importData.categories);
             }
             
-            // Import bills
+            // Import bills with mapped profile IDs
             if (importData.bills && importData.bills.length > 0) {
                 await new Promise((resolve, reject) => {
                     const transaction = database.db.transaction(['bills'], 'readwrite');
@@ -1335,7 +1342,12 @@ class BillManagerApp {
                     
                     for (const bill of importData.bills) {
                         if (!existingBillIds.has(bill.id)) {
-                            store.add(bill);
+                            // Map the profile ID to the correct one
+                            const mappedBill = { ...bill };
+                            if (profileIdMap.has(bill.profileId)) {
+                                mappedBill.profileId = profileIdMap.get(bill.profileId);
+                            }
+                            store.add(mappedBill);
                         }
                     }
                     
@@ -1344,7 +1356,7 @@ class BillManagerApp {
                 });
             }
             
-            // Import templates
+            // Import templates with mapped profile IDs
             if (importData.templates && importData.templates.length > 0) {
                 await new Promise((resolve, reject) => {
                     const transaction = database.db.transaction(['templates'], 'readwrite');
@@ -1352,7 +1364,12 @@ class BillManagerApp {
                     
                     for (const template of importData.templates) {
                         if (!existingTemplateIds.has(template.id)) {
-                            store.add(template);
+                            // Map the profile ID to the correct one
+                            const mappedTemplate = { ...template };
+                            if (profileIdMap.has(template.profileId)) {
+                                mappedTemplate.profileId = profileIdMap.get(template.profileId);
+                            }
+                            store.add(mappedTemplate);
                         }
                     }
                     

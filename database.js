@@ -485,6 +485,28 @@ class BillDatabase {
         });
     }
 
+    async getAllBillsAllProfiles() {
+        const transaction = this.db.transaction(['bills'], 'readonly');
+        const store = transaction.objectStore('bills');
+
+        return new Promise((resolve, reject) => {
+            const request = store.getAll();
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+        });
+    }
+
+    async getAllTemplatesAllProfiles() {
+        const transaction = this.db.transaction(['templates'], 'readonly');
+        const store = transaction.objectStore('templates');
+
+        return new Promise((resolve, reject) => {
+            const request = store.getAll();
+            request.onsuccess = () => resolve(request.result);
+            request.onerror = () => reject(request.error);
+        });
+    }
+
     async getProfileStats(profileId) {
         const bills = await this.getAllBillsForProfile(profileId);
         const templates = await this.getAllTemplatesForProfile(profileId);

@@ -2,7 +2,7 @@
   "name": "Bill Manager Pro",
   "short_name": "BillManager",
   "description": "Manage your bills and payments efficiently",
-  "start_url": "/index.html",
+  "start_url": "Bill-Manager-Pro/index.html",
   "display": "standalone",
   "background_color": "#4CAF50",
   "theme_color": "#4CAF50",
