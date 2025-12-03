@@ -6,7 +6,7 @@ class ChartManager {
     }
 
     // Simple chart rendering without external libraries
-    createBarChart(canvasId, data, labels) {
+    createBarChart(canvasId, data, labels, monthKeys = []) {
         const canvas = document.getElementById(canvasId);
         if (!canvas) return;
 
@@ -29,6 +29,9 @@ class ChartManager {
         const barWidth = (width - 60) / data.length;
         const chartHeight = height - 60;
 
+        // Store bar positions for click detection
+        this.barPositions = [];
+
         // Draw bars
         data.forEach((value, index) => {
             const barHeight = (value / maxValue) * chartHeight;
@@ -36,10 +39,24 @@ class ChartManager {
             const y = height - 40 - barHeight;
             const barActualWidth = barWidth * 0.8;
 
+            // Store position for click detection
+            this.barPositions.push({
+                x, y, width: barActualWidth, height: barHeight,
+                monthKey: monthKeys[index]
+            });
+
+            // Check if this month is selected
+            const isSelected = app.analyticsFilters && app.analyticsFilters.selectedMonth === monthKeys[index];
+
             // Draw bar
             const gradient = ctx.createLinearGradient(0, y, 0, height - 40);
-            gradient.addColorStop(0, '#4CAF50');
-            gradient.addColorStop(1, '#2196F3');
+            if (isSelected) {
+                gradient.addColorStop(0, '#FF9800');
+                gradient.addColorStop(1, '#FF5722');
+            } else {
+                gradient.addColorStop(0, '#4CAF50');
+                gradient.addColorStop(1, '#2196F3');
+            }
             ctx.fillStyle = gradient;
             ctx.fillRect(x, y, barActualWidth, barHeight);
 
@@ -67,6 +84,21 @@ class ChartManager {
         ctx.lineTo(40, height - 40);
         ctx.lineTo(width - 20, height - 40);
         ctx.stroke();
+
+        // Setup click handler
+        canvas.style.cursor = 'pointer';
+        canvas.onclick = (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            for (const bar of this.barPositions) {
+                if (x >= bar.x && x <= bar.x + bar.width && y >= bar.y && y <= bar.y + bar.height) {
+                    app.drilldownMonth(bar.monthKey);
+                    break;
+                }
+            }
+        };
     }
 
     createPieChart(canvasId, data, labels) {
@@ -99,9 +131,20 @@ class ChartManager {
         ];
 
         let currentAngle = -Math.PI / 2;
+        this.pieSlices = [];
 
         data.forEach((value, index) => {
             const sliceAngle = (value / total) * 2 * Math.PI;
+
+            // Check if this category is selected
+            const isSelected = app.analyticsFilters && app.analyticsFilters.category === labels[index];
+
+            // Store slice for click detection
+            this.pieSlices.push({
+                startAngle: currentAngle,
+                endAngle: currentAngle + sliceAngle,
+                category: labels[index]
+            });
 
             // Draw slice
             ctx.beginPath();
@@ -110,6 +153,17 @@ class ChartManager {
             ctx.arc(centerX, centerY, radius, currentAngle, currentAngle + sliceAngle);
             ctx.closePath();
             ctx.fill();
+
+            // Highlight selected slice
+            if (isSelected) {
+                ctx.beginPath();
+                ctx.strokeStyle = '#fff';
+                ctx.lineWidth = 4;
+                ctx.moveTo(centerX, centerY);
+                ctx.arc(centerX, centerY, radius, currentAngle, currentAngle + sliceAngle);
+                ctx.closePath();
+                ctx.stroke();
+            }
 
             // Draw label
             const labelAngle = currentAngle + sliceAngle / 2;
@@ -126,19 +180,91 @@ class ChartManager {
 
             currentAngle += sliceAngle;
         });
+
+        // Setup click handler
+        canvas.style.cursor = 'pointer';
+        canvas.onclick = (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
+
+            // Calculate angle from center
+            const dx = x - centerX;
+            const dy = y - centerY;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+
+            if (distance <= radius) {
+                let angle = Math.atan2(dy, dx);
+                if (angle < -Math.PI / 2) angle += 2 * Math.PI;
+
+                for (const slice of this.pieSlices) {
+                    if (angle >= slice.startAngle && angle <= slice.endAngle) {
+                        // Toggle category filter
+                        if (app.analyticsFilters.category === slice.category) {
+                            app.analyticsFilters.category = 'all';
+                            document.getElementById('analyticsCategoryFilter').value = 'all';
+                        } else {
+                            app.analyticsFilters.category = slice.category;
+                            document.getElementById('analyticsCategoryFilter').value = slice.category;
+                        }
+                        app.refreshAnalytics();
+                        break;
+                    }
+                }
+            }
+        };
     }
 
-    async renderSpendingTrend() {
-        const trendData = await database.getSpendingTrend(6);
+    async renderSpendingTrend(filters = {}) {
+        const timeRange = filters.timeRange || 12;
+        const category = filters.category || 'all';
+        
+        let trendData = await database.getSpendingTrend(timeRange === 'all' ? 60 : timeRange);
+        
+        // Apply category filter if needed
+        if (category !== 'all') {
+            const filteredData = [];
+            for (const dataPoint of trendData) {
+                const [year, month] = dataPoint.monthKey.split('-');
+                const categorySpending = await database.getSpendingByCategory(parseInt(year), parseInt(month) - 1);
+                const amount = categorySpending[category] || 0;
+                filteredData.push({
+                    month: dataPoint.month,
+                    amount: amount,
+                    monthKey: dataPoint.monthKey
+                });
+            }
+            trendData = filteredData;
+        }
+        
         const amounts = trendData.map(d => d.amount);
         const labels = trendData.map(d => d.month);
+        const monthKeys = trendData.map(d => d.monthKey);
         
-        this.createBarChart('spendingChart', amounts, labels);
+        this.createBarChart('spendingChart', amounts, labels, monthKeys);
     }
 
-    async renderCategoryBreakdown() {
-        const now = new Date();
-        const categories = await database.getSpendingByCategory(now.getFullYear(), now.getMonth());
+    async renderCategoryBreakdown(filters = {}) {
+        let categories = {};
+        
+        if (filters.selectedMonth) {
+            // Show categories for specific month
+            const [year, month] = filters.selectedMonth.split('-');
+            categories = await database.getSpendingByCategory(parseInt(year), parseInt(month) - 1);
+        } else {
+            // Aggregate across time range
+            const timeRange = filters.timeRange || 12;
+            const now = new Date();
+            
+            for (let i = 0; i < (timeRange === 'all' ? 60 : timeRange); i++) {
+                const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                const monthCategories = await database.getSpendingByCategory(date.getFullYear(), date.getMonth());
+                
+                for (const [cat, amount] of Object.entries(monthCategories)) {
+                    categories[cat] = (categories[cat] || 0) + amount;
+                }
+            }
+        }
         
         const amounts = Object.values(categories);
         const labels = Object.keys(categories);
@@ -146,9 +272,9 @@ class ChartManager {
         this.createPieChart('categoryChart', amounts, labels);
     }
 
-    async updateAllCharts() {
-        await this.renderSpendingTrend();
-        await this.renderCategoryBreakdown();
+    async updateAllCharts(filters = {}) {
+        await this.renderSpendingTrend(filters);
+        await this.renderCategoryBreakdown(filters);
     }
 }
 

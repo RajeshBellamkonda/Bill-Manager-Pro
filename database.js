@@ -544,9 +544,11 @@ class BillDatabase {
         for (let i = months - 1; i >= 0; i--) {
             const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
             const spending = await this.getMonthlySpending(date.getFullYear(), date.getMonth());
+            const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
             trend.push({
                 month: date.toLocaleDateString('en-US', { year: 'numeric', month: 'short' }),
-                amount: spending
+                amount: spending,
+                monthKey: monthKey
             });
         }
 

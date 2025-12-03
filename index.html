@@ -185,6 +185,25 @@
             <div class="analytics-section">
                 <h2>Spending Analytics</h2>
                 
+                <div class="analytics-filters">
+                    <div class="filter-group">
+                        <label for="analyticsTimeRange">Time Range:</label>
+                        <select id="analyticsTimeRange" class="filter-select">
+                            <option value="6">Last 6 Months</option>
+                            <option value="12" selected>Last 12 Months</option>
+                            <option value="24">Last 24 Months</option>
+                            <option value="all">All Time</option>
+                        </select>
+                    </div>
+                    <div class="filter-group">
+                        <label for="analyticsCategoryFilter">Category:</label>
+                        <select id="analyticsCategoryFilter" class="filter-select">
+                            <option value="all">All Categories</option>
+                        </select>
+                    </div>
+                    <button id="analyticsResetBtn" class="btn btn-secondary btn-small">Reset Filters</button>
+                </div>
+                
                 <div class="stats-cards">
                     <div class="stat-card">
                         <h3>This Month</h3>
@@ -205,17 +224,26 @@
                 </div>
 
                 <div class="chart-container">
-                    <h3>Monthly Spending Trend</h3>
+                    <div class="chart-header">
+                        <h3>Monthly Spending Trend</h3>
+                        <span class="chart-subtitle">Click on any bar to drill down</span>
+                    </div>
                     <canvas id="spendingChart"></canvas>
                 </div>
 
                 <div class="chart-container">
-                    <h3>Category Breakdown</h3>
+                    <div class="chart-header">
+                        <h3>Category Breakdown</h3>
+                        <span class="chart-subtitle">Click on any slice to filter</span>
+                    </div>
                     <canvas id="categoryChart"></canvas>
                 </div>
 
                 <div class="bills-report">
-                    <h3>Detailed Report</h3>
+                    <div class="report-header">
+                        <h3>Detailed Report</h3>
+                        <div id="activeFiltersDisplay" class="active-filters"></div>
+                    </div>
                     <div id="detailedReport"></div>
                 </div>
             </div>
@@ -324,6 +352,14 @@
                             <div class="theme-preview theme-preview-dark"></div>
                             <span>Dark Mode</span>
                         </div>
+                        <div class="theme-option" data-theme="dark-blue">
+                            <div class="theme-preview theme-preview-dark-blue"></div>
+                            <span>Dark Blue</span>
+                        </div>
+                        <div class="theme-option" data-theme="dark-purple">
+                            <div class="theme-preview theme-preview-dark-purple"></div>
+                            <span>Dark Purple</span>
+                        </div>
                     </div>
                 </div>
 
@@ -334,6 +370,13 @@
                             <input type="checkbox" id="notificationsEnabled">
                             Enable notifications
                         </label>
+                    </div>
+                    <div class="notification-status" id="notificationStatus">
+                        <p id="notificationPermissionText">Status: Not enabled</p>
+                    </div>
+                    <div class="notification-actions">
+                        <button id="testNotificationBtn" class="btn btn-secondary">Send Test Notification</button>
+                        <button id="checkBillsNotificationBtn" class="btn btn-secondary">Check Bills Now</button>
                     </div>
                 </div>
 

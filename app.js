@@ -128,6 +128,8 @@ class BillManagerApp {
 
         // Notifications
         document.getElementById('requestNotificationBtn').addEventListener('click', () => this.enableNotifications());
+        document.getElementById('testNotificationBtn').addEventListener('click', () => this.testNotification());
+        document.getElementById('checkBillsNotificationBtn').addEventListener('click', () => this.checkBillsNow());
 
         // Templates
         document.getElementById('createTemplateBtn').addEventListener('click', () => this.createTemplate());
@@ -141,9 +143,9 @@ class BillManagerApp {
         });
         document.getElementById('saveSettingsBtn').addEventListener('click', () => this.saveSettings());
         document.getElementById('resetSettingsBtn').addEventListener('click', () => this.resetSettings());
-        document.getElementById('notificationsEnabled').addEventListener('change', (e) => {
+        document.getElementById('notificationsEnabled').addEventListener('change', async (e) => {
             if (e.target.checked) {
-                this.enableNotifications();
+                await this.enableNotifications();
             }
         });
 
@@ -265,8 +267,9 @@ class BillManagerApp {
         document.getElementById('currentMonth').textContent = 
             this.currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
-        // Load monthly credit
-        const creditKey = `monthlyCredit_${year}_${month}`;
+        // Load monthly credit (profile-specific)
+        const profileId = database.getCurrentProfile();
+        const creditKey = `monthlyCredit_${profileId}_${year}_${month}`;
         const savedCredit = await database.getSetting(creditKey);
         document.getElementById('monthlyCredit').value = savedCredit || '';
 
@@ -361,10 +364,22 @@ class BillManagerApp {
             return;
         }
 
-        timeline.innerHTML = bills.map(bill => this.createBillCard(bill)).join('');
+        // Sort bills by due date for credit balance calculation
+        const sortedBills = [...bills].sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+        let remainingCredit = credit;
+        
+        timeline.innerHTML = sortedBills.map(bill => {
+            const billHtml = this.createBillCard(bill, remainingCredit);
+            // Deduct from credit if bill is unpaid
+            if (!bill.isPaid) {
+                const billAmount = typeof bill.amount === 'number' ? bill.amount : parseFloat(bill.amount) || 0;
+                remainingCredit = Math.max(0, remainingCredit - billAmount);
+            }
+            return billHtml;
+        }).join('');
     }
 
-    createBillCard(bill) {
+    createBillCard(bill, creditBeforeThisBill = 0) {
         // Ensure amount is a number (defensive coding for any legacy data)
         const amount = typeof bill.amount === 'number' ? bill.amount : parseFloat(bill.amount) || 0;
         
@@ -377,6 +392,17 @@ class BillManagerApp {
         
         let statusClass = '';
         let statusBadge = '';
+        
+        // Calculate credit balance for unpaid bills
+        let creditBalanceBadge = '';
+        if (!bill.isPaid && creditBeforeThisBill > 0) {
+            const creditAfter = creditBeforeThisBill - amount;
+            if (creditAfter >= 0) {
+                creditBalanceBadge = `<span class="credit-balance-badge credit-sufficient">💰 Credit: ${this.currencySymbol}${creditAfter.toFixed(2)}</span>`;
+            } else {
+                creditBalanceBadge = `<span class="credit-balance-badge credit-insufficient">⚠️ Short: ${this.currencySymbol}${Math.abs(creditAfter).toFixed(2)}</span>`;
+            }
+        }
         
         if (bill.isPaid) {
             statusClass = 'paid';
@@ -413,7 +439,8 @@ class BillManagerApp {
                             <span class="bill-meta-item"><span class="meta-icon">${frequencyIcon}</span>${this.formatFrequency(bill.frequency)}</span>
                             ${bill.category ? `<span class="bill-meta-item"><span class="meta-icon">📁</span>${bill.category}</span>` : ''}
                             ${bill.notes ? `<span class="bill-meta-item bill-notes-icon" onclick="event.stopPropagation(); app.showNotesPopup('${bill.notes.replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/\n/g, '\\n')}', '${bill.name.replace(/'/g, "\\'").replace(/"/g, '&quot;')}')"><span class="meta-icon">📝</span>Notes</span>` : ''}
-                        </div>
+                            ${creditBalanceBadge}
+                            </div>
                         ${bill.notes ? `<div class="bill-notes-preview"><span class="meta-icon">📝</span>${bill.notes}</div>` : ''}
                     </div>
                     <div class="bill-amount-section">
@@ -578,9 +605,88 @@ class BillManagerApp {
             await database.saveSetting('notificationsEnabled', true);
             notificationManager.startPeriodicCheck();
             notificationManager.scheduleRecurringNotifications();
+            this.updateNotificationStatus();
             alert('Notifications enabled! You will receive reminders for upcoming bills.');
         } else {
+            this.updateNotificationStatus();
             alert('Notification permission denied. Please enable it in your browser settings.');
+        }
+    }
+
+    updateNotificationStatus() {
+        const statusText = document.getElementById('notificationPermissionText');
+        const notificationsEnabled = document.getElementById('notificationsEnabled').checked;
+        
+        if (!('Notification' in window)) {
+            statusText.innerHTML = '❌ Status: <span style="color: var(--danger-color);">Not supported by browser</span>';
+            return;
+        }
+
+        const permission = Notification.permission;
+        if (permission === 'granted' && notificationsEnabled) {
+            statusText.innerHTML = '✅ Status: <span style="color: var(--success-color);">Active</span>';
+        } else if (permission === 'granted') {
+            statusText.innerHTML = '⚠️ Status: <span style="color: #FF9800;">Granted but disabled</span>';
+        } else if (permission === 'denied') {
+            statusText.innerHTML = '❌ Status: <span style="color: var(--danger-color);">Blocked - Check browser settings</span>';
+        } else {
+            statusText.innerHTML = '⏸️ Status: <span style="color: var(--text-secondary);">Not requested</span>';
+        }
+    }
+
+    async testNotification() {
+        console.log('Test notification clicked');
+        
+        if (!('Notification' in window)) {
+            alert('Your browser does not support notifications.');
+            return;
+        }
+
+        const granted = await notificationManager.requestPermission();
+        console.log('Permission granted:', granted);
+        
+        if (granted) {
+            const notification = notificationManager.showNotification('Test Notification 🔔', {
+                body: 'If you can see this, notifications are working correctly!',
+                icon: 'icon-192.png',
+                tag: 'test-notification',
+                requireInteraction: false
+            });
+            
+            if (notification) {
+                console.log('Test notification sent successfully');
+                alert('Test notification sent! Check your system notifications.');
+            } else {
+                console.error('Failed to create notification');
+                alert('Failed to send notification. Check console for errors.');
+            }
+            
+            this.updateNotificationStatus();
+        } else {
+            const permission = Notification.permission;
+            if (permission === 'denied') {
+                alert('Notifications are blocked. Please enable them in your browser settings:\n\n1. Click the lock icon in the address bar\n2. Find Notifications\n3. Change to "Allow"\n4. Refresh the page');
+            } else {
+                alert('Please allow notifications when prompted by your browser.');
+            }
+            this.updateNotificationStatus();
+        }
+    }
+
+    async checkBillsNow() {
+        const granted = await notificationManager.requestPermission();
+        if (!granted) {
+            alert('Please allow notifications in your browser settings first.');
+            return;
+        }
+
+        const result = await notificationManager.checkUpcomingBills();
+        this.updateNotificationStatus();
+        
+        if (result === 0) {
+            alert('No upcoming bills require notifications at this time.');
+        } else {
+            alert(`Checked bills! Found ${result} notification(s) to send.`);
         }
     }
 
@@ -714,11 +820,91 @@ class BillManagerApp {
     }
 
     async loadAnalytics() {
+        // Initialize analytics filters state
+        if (!this.analyticsFilters) {
+            this.analyticsFilters = {
+                timeRange: 12,
+                category: 'all',
+                selectedMonth: null
+            };
+        }
+
         const now = new Date();
         const currentYear = now.getFullYear();
         const currentMonth = now.getMonth();
 
+        // Load category filter dropdown
+        await this.loadAnalyticsCategoryFilter();
+
+        // Setup filter event listeners
+        this.setupAnalyticsFilters();
+
         // Update stat cards
+        await this.updateAnalyticsStats();
+
+        // Update charts with filters
+        await chartManager.updateAllCharts(this.analyticsFilters);
+
+        // Update detailed report
+        await this.updateDetailedReport();
+    }
+
+    async loadAnalyticsCategoryFilter() {
+        const categories = await database.getCategories();
+        const categoryFilter = document.getElementById('analyticsCategoryFilter');
+        
+        categoryFilter.innerHTML = '<option value="all">All Categories</option>' +
+            categories.map(cat => `<option value="${cat}">${cat}</option>`).join('');
+        
+        // Restore selected category if any
+        if (this.analyticsFilters.category !== 'all') {
+            categoryFilter.value = this.analyticsFilters.category;
+        }
+    }
+
+    setupAnalyticsFilters() {
+        const timeRangeSelect = document.getElementById('analyticsTimeRange');
+        const categoryFilter = document.getElementById('analyticsCategoryFilter');
+        const resetBtn = document.getElementById('analyticsResetBtn');
+
+        // Remove old listeners if any
+        timeRangeSelect.replaceWith(timeRangeSelect.cloneNode(true));
+        categoryFilter.replaceWith(categoryFilter.cloneNode(true));
+        resetBtn.replaceWith(resetBtn.cloneNode(true));
+
+        // Get fresh references
+        const timeRange = document.getElementById('analyticsTimeRange');
+        const category = document.getElementById('analyticsCategoryFilter');
+        const reset = document.getElementById('analyticsResetBtn');
+
+        timeRange.addEventListener('change', async (e) => {
+            this.analyticsFilters.timeRange = e.target.value === 'all' ? 'all' : parseInt(e.target.value);
+            this.analyticsFilters.selectedMonth = null; // Reset month selection
+            await this.refreshAnalytics();
+        });
+
+        category.addEventListener('change', async (e) => {
+            this.analyticsFilters.category = e.target.value;
+            await this.refreshAnalytics();
+        });
+
+        reset.addEventListener('click', async () => {
+            this.analyticsFilters = {
+                timeRange: 12,
+                category: 'all',
+                selectedMonth: null
+            };
+            timeRange.value = '12';
+            category.value = 'all';
+            await this.refreshAnalytics();
+        });
+    }
+
+    async updateAnalyticsStats() {
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth();
+
         const currentMonthTotal = await database.getMonthlySpending(currentYear, currentMonth);
         const lastMonthTotal = await database.getMonthlySpending(
             currentMonth === 0 ? currentYear - 1 : currentYear,
@@ -726,7 +912,7 @@ class BillManagerApp {
         );
 
         const trendData = await database.getSpendingTrend(12);
-        const avgMonthly = trendData.reduce((sum, d) => sum + d.amount, 0) / trendData.length;
+        const avgMonthly = trendData.length > 0 ? trendData.reduce((sum, d) => sum + d.amount, 0) / trendData.length : 0;
 
         const allBills = await database.getAllBills();
 
@@ -734,20 +920,65 @@ class BillManagerApp {
         document.getElementById('lastMonthTotal').textContent = `${this.currencySymbol}${lastMonthTotal.toFixed(2)}`;
         document.getElementById('avgMonthlyTotal').textContent = `${this.currencySymbol}${avgMonthly.toFixed(2)}`;
         document.getElementById('totalBills').textContent = allBills.length;
+    }
 
-        // Update charts
-        await chartManager.updateAllCharts();
+    async refreshAnalytics() {
+        await chartManager.updateAllCharts(this.analyticsFilters);
+        await this.updateDetailedReport();
+        this.updateActiveFiltersDisplay();
+    }
 
-        // Update detailed report
-        this.updateDetailedReport();
+    updateActiveFiltersDisplay() {
+        const display = document.getElementById('activeFiltersDisplay');
+        const filters = [];
+
+        if (this.analyticsFilters.selectedMonth) {
+            filters.push(`📅 ${this.analyticsFilters.selectedMonth}`);
+        } else {
+            const timeRange = this.analyticsFilters.timeRange;
+            if (timeRange !== 'all') {
+                filters.push(`📊 Last ${timeRange} months`);
+            }
+        }
+
+        if (this.analyticsFilters.category !== 'all') {
+            filters.push(`📁 ${this.analyticsFilters.category}`);
+        }
+
+        if (filters.length > 0) {
+            display.innerHTML = `<span class="filter-tag">Active Filters: ${filters.join(' • ')}</span>`;
+            display.style.display = 'block';
+        } else {
+            display.style.display = 'none';
+        }
     }
 
     async updateDetailedReport() {
-        const bills = await database.getAllBills();
+        let bills = await database.getAllBills();
         const reportDiv = document.getElementById('detailedReport');
 
+        // Apply category filter
+        if (this.analyticsFilters.category !== 'all') {
+            bills = bills.filter(b => b.category === this.analyticsFilters.category);
+        }
+
+        // Apply time range filter
+        if (this.analyticsFilters.selectedMonth) {
+            // Specific month selected from chart click
+            bills = bills.filter(b => {
+                const date = new Date(b.dueDate);
+                const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                return this.analyticsFilters.selectedMonth === key;
+            });
+        } else if (this.analyticsFilters.timeRange !== 'all') {
+            const now = new Date();
+            const cutoffDate = new Date();
+            cutoffDate.setMonth(now.getMonth() - this.analyticsFilters.timeRange);
+            bills = bills.filter(b => new Date(b.dueDate) >= cutoffDate);
+        }
+
         if (bills.length === 0) {
-            reportDiv.innerHTML = '<p>No bills to report</p>';
+            reportDiv.innerHTML = '<p>No bills match the selected filters</p>';
             return;
         }
 
@@ -772,8 +1003,11 @@ class BillManagerApp {
             const [year, month] = key.split('-');
             const monthName = new Date(year, month - 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
 
+            const isSelected = this.analyticsFilters.selectedMonth === key;
+            const rowClass = isSelected ? 'selected-row' : '';
+
             html += `
-                <tr>
+                <tr class="${rowClass} clickable-row" onclick="app.drilldownMonth('${key}')">
                     <td>${monthName}</td>
                     <td>${monthBills.length}</td>
                     <td>${paid}</td>
@@ -785,6 +1019,16 @@ class BillManagerApp {
 
         html += '</tbody></table>';
         reportDiv.innerHTML = html;
+    }
+
+    async drilldownMonth(monthKey) {
+        if (this.analyticsFilters.selectedMonth === monthKey) {
+            // Unselect if clicking the same month
+            this.analyticsFilters.selectedMonth = null;
+        } else {
+            this.analyticsFilters.selectedMonth = monthKey;
+        }
+        await this.refreshAnalytics();
     }
 
     async loadSettings() {
@@ -810,6 +1054,7 @@ class BillManagerApp {
         // Load notification setting
         const notificationsEnabled = await database.getSetting('notificationsEnabled');
         document.getElementById('notificationsEnabled').checked = notificationsEnabled || false;
+        this.updateNotificationStatus();
 
         // Load current profile name
         const currentProfileId = database.getCurrentProfile();
@@ -1471,7 +1716,9 @@ class BillManagerApp {
         const month = this.currentMonth.getMonth();
         const creditValue = parseFloat(document.getElementById('monthlyCredit').value) || 0;
         
-        const creditKey = `monthlyCredit_${year}_${month}`;
+        // Save credit per profile
+        const profileId = database.getCurrentProfile();
+        const creditKey = `monthlyCredit_${profileId}_${year}_${month}`;
         
         try {
             await database.saveSetting(creditKey, creditValue);

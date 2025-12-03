@@ -11,33 +11,59 @@ class NotificationManager {
             return false;
         }
 
+        // Always check current permission state
+        this.permission = Notification.permission;
+        console.log('Current notification permission:', this.permission);
+
         if (this.permission === 'granted') {
+            console.log('Permission already granted');
             return true;
         }
 
-        if (this.permission !== 'denied') {
-            const permission = await Notification.requestPermission();
-            this.permission = permission;
-            return permission === 'granted';
+        if (this.permission === 'denied') {
+            console.log('Notification permission denied');
+            return false;
         }
 
-        return false;
+        // Permission is 'default' - need to request it
+        try {
+            console.log('Requesting notification permission...');
+            const permission = await Notification.requestPermission();
+            this.permission = permission;
+            console.log('Notification permission result:', permission);
+            return permission === 'granted';
+        } catch (error) {
+            console.error('Error requesting notification permission:', error);
+            return false;
+        }
     }
 
     showNotification(title, options = {}) {
+        // Always check current permission
+        this.permission = Notification.permission;
+        
         if (this.permission === 'granted') {
-            const notification = new Notification(title, {
-                icon: '💰',
-                badge: '💰',
-                ...options
-            });
+            try {
+                const notification = new Notification(title, {
+                    icon: 'icon-192.png',
+                    badge: 'icon-72.png',
+                    ...options
+                });
 
-            notification.onclick = () => {
-                window.focus();
-                notification.close();
-            };
+                notification.onclick = () => {
+                    window.focus();
+                    notification.close();
+                };
 
-            return notification;
+                console.log('Notification shown:', title);
+                return notification;
+            } catch (error) {
+                console.error('Error showing notification:', error);
+                return null;
+            }
+        } else {
+            console.warn('Cannot show notification. Permission:', this.permission);
+            return null;
         }
     }
 
@@ -45,6 +71,7 @@ class NotificationManager {
         const bills = await database.getAllBills();
         const today = new Date();
         today.setHours(0, 0, 0, 0);
+        let notificationCount = 0;
 
         bills.forEach(bill => {
             if (bill.isPaid) return;
@@ -58,27 +85,32 @@ class NotificationManager {
             // Check if bill is due today
             if (daysUntilDue === 0) {
                 this.showNotification('Bill Due Today! 🔔', {
-                    body: `${bill.name} - $${bill.amount.toFixed(2)} is due today!`,
+                    body: `${bill.name} - ${app.currencySymbol}${bill.amount.toFixed(2)} is due today!`,
                     tag: `bill-due-${bill.id}`,
                     requireInteraction: true
                 });
+                notificationCount++;
             }
             // Check if bill is within reminder window
             else if (daysUntilDue > 0 && daysUntilDue <= reminderDays) {
                 this.showNotification('Upcoming Bill Reminder 📅', {
-                    body: `${bill.name} - $${bill.amount.toFixed(2)} is due in ${daysUntilDue} day(s)`,
+                    body: `${bill.name} - ${app.currencySymbol}${bill.amount.toFixed(2)} is due in ${daysUntilDue} day(s)`,
                     tag: `bill-reminder-${bill.id}`
                 });
+                notificationCount++;
             }
             // Check if bill is overdue
             else if (daysUntilDue < 0) {
                 this.showNotification('Overdue Bill! ⚠️', {
-                    body: `${bill.name} - $${bill.amount.toFixed(2)} was due ${Math.abs(daysUntilDue)} day(s) ago`,
+                    body: `${bill.name} - ${app.currencySymbol}${bill.amount.toFixed(2)} was due ${Math.abs(daysUntilDue)} day(s) ago`,
                     tag: `bill-overdue-${bill.id}`,
                     requireInteraction: true
                 });
+                notificationCount++;
             }
         });
+
+        return notificationCount;
     }
 
     startPeriodicCheck() {

@@ -1,7 +1,7 @@
 :root {
     --primary-color: #4CAF50;
     --secondary-color: #2196F3;
-    --danger-color: #f44336;
+    --danger-color: #d1564d7b;
     --warning-color: #ff9800;
     --success-color: #4CAF50;
     --bg-color: #f5f5f5;
@@ -818,6 +818,27 @@ header h1 {
     gap: 6px;
 }
 
+.credit-balance-badge {
+    padding: 4px 10px;
+    border-radius: 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    display: inline-block;
+    white-space: nowrap;
+}
+
+.credit-balance-badge.credit-sufficient {
+    background: linear-gradient(135deg, rgba(76, 175, 80, 0.15), rgba(76, 175, 80, 0.1));
+    color: #2e7d32;
+    border: 1px solid rgba(76, 175, 80, 0.3);
+}
+
+.credit-balance-badge.credit-insufficient {
+    background: linear-gradient(135deg, rgba(255, 152, 0, 0.15), rgba(255, 152, 0, 0.1));
+    color: #e65100;
+    border: 1px solid rgba(255, 152, 0, 0.3);
+}
+
 .bill-amount {
     font-size: 1.3rem;
     font-weight: 700;
@@ -1088,23 +1109,25 @@ header h1 {
 }
 
 .btn-action-secondary {
-    background: var(--secondary-color);
-    color: white;
-    border-color: var(--secondary-color);
+    background: transparent;
+    color: var(--secondary-color);
+    border: 1px solid rgba(33, 150, 243, 0.3);
 }
 
 .btn-action-secondary:hover {
-    background: #1976D2;
+    background: rgba(33, 150, 243, 0.1);
+    border-color: var(--secondary-color);
 }
 
 .btn-action-danger {
-    background: var(--danger-color);
-    color: white;
-    border-color: var(--danger-color);
+    background: transparent;
+    color: var(--danger-color);
+    border: 1px solid rgba(244, 67, 54, 0.3);
 }
 
 .btn-action-danger:hover {
-    background: #da190b;
+    background: rgba(244, 67, 54, 0.1);
+    border-color: var(--danger-color);
 }
 
 @media (max-width: 768px) {
@@ -1144,7 +1167,7 @@ header h1 {
 
 .btn-secondary {
     background: var(--secondary-color);
-    color: white;
+    color: rgb(135, 93, 93);
 }
 
 .btn-secondary:hover {
@@ -1553,6 +1576,133 @@ header h1 {
     padding: 30px;
     border-radius: 12px;
     box-shadow: var(--shadow);
+}
+
+.analytics-filters {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+    margin-bottom: 25px;
+    padding: 15px;
+    background: rgba(76, 175, 80, 0.08);
+    border-radius: 8px;
+    border: 1px solid rgba(76, 175, 80, 0.2);
+    flex-wrap: wrap;
+}
+
+.filter-group {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.filter-group label {
+    font-weight: 600;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+    white-space: nowrap;
+}
+
+.filter-select {
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--bg-color);
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.filter-select:hover {
+    border-color: var(--primary-color);
+}
+
+.filter-select:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+}
+
+.chart-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.chart-subtitle {
+    font-size: 0.85rem;
+    color: var(--text-secondary);
+    font-style: italic;
+}
+
+.report-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+
+.active-filters {
+    display: none;
+}
+
+.filter-tag {
+    display: inline-block;
+    padding: 6px 12px;
+    background: linear-gradient(135deg, rgba(33, 150, 243, 0.15), rgba(33, 150, 243, 0.1));
+    color: var(--secondary-color);
+    border-radius: 16px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    border: 1px solid rgba(33, 150, 243, 0.3);
+}
+
+.clickable-row {
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+.clickable-row:hover {
+    background: rgba(76, 175, 80, 0.15) !important;
+    transform: scale(1.01);
+}
+
+.selected-row {
+    background: rgba(33, 150, 243, 0.15) !important;
+    border-left: 3px solid var(--secondary-color);
+}
+
+@media (max-width: 768px) {
+    .analytics-filters {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 10px;
+    }
+
+    .filter-group {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 5px;
+    }
+
+    .filter-select {
+        width: 100%;
+    }
+
+    .chart-header {
+        flex-direction: column;
+        align-items: flex-start;
+    }
+
+    .chart-subtitle {
+        font-size: 0.8rem;
+    }
 }
 
 .stats-cards {
@@ -2176,6 +2326,37 @@ header h1 {
     color: var(--text-primary);
 }
 
+.notification-status {
+    margin: 15px 0;
+    padding: 12px;
+    background: rgba(76, 175, 80, 0.08);
+    border-radius: 6px;
+    border-left: 3px solid var(--primary-color);
+}
+
+.notification-status p {
+    margin: 0;
+    font-size: 0.95rem;
+    font-weight: 500;
+}
+
+.notification-actions {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 15px;
+}
+
+@media (max-width: 768px) {
+    .notification-actions {
+        flex-direction: column;
+    }
+    
+    .notification-actions button {
+        width: 100%;
+    }
+}
+
 .theme-selector {
     display: grid;
     grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
@@ -2238,6 +2419,14 @@ header h1 {
 
 .theme-preview-dark {
     background: linear-gradient(135deg, #263238, #37474F);
+}
+
+.theme-preview-dark-blue {
+    background: linear-gradient(135deg, #1a237e, #0d47a1);
+}
+
+.theme-preview-dark-purple {
+    background: linear-gradient(135deg, #4a148c, #6a1b9a);
 }
 
 .settings-actions {
@@ -2381,6 +2570,178 @@ body[data-theme="dark"] .template-card {
 
 body[data-theme="dark"] .chart-container {
     background: #1a1a1a;
+}
+
+/* Dark Blue Theme */
+body[data-theme="dark-blue"] {
+    --primary-color: #2196F3;
+    --secondary-color: #42A5F5;
+    --bg-color: #0a1929;
+    --card-bg: #1e2a38;
+    --text-primary: #e3f2fd;
+    --text-secondary: #90caf9;
+    --border-color: #1e3a5f;
+    --shadow: 0 2px 8px rgba(0,0,0,0.5);
+    --shadow-hover: 0 4px 12px rgba(0,0,0,0.7);
+}
+
+body[data-theme="dark-blue"] .balances-section {
+    background: linear-gradient(135deg, rgba(33, 150, 243, 0.2), rgba(66, 165, 245, 0.15));
+    border-color: rgba(33, 150, 243, 0.3);
+}
+
+body[data-theme="dark-blue"] .balance-item {
+    background: rgba(33, 150, 243, 0.12);
+}
+
+body[data-theme="dark-blue"] .balance-input {
+    background: #0a1929;
+    color: #e3f2fd;
+    border-color: rgba(33, 150, 243, 0.4);
+}
+
+body[data-theme="dark-blue"] .balance-input:focus {
+    border-color: #2196F3;
+    box-shadow: 0 0 0 3px rgba(33, 150, 243, 0.2);
+}
+
+body[data-theme="dark-blue"] .balances-section .unpaid-total {
+    background: linear-gradient(135deg, rgba(231, 76, 60, 0.25), rgba(231, 76, 60, 0.15));
+    color: #ff8a80;
+}
+
+body[data-theme="dark-blue"] .balance-difference {
+    background: rgba(33, 150, 243, 0.08);
+}
+
+body[data-theme="dark-blue"] .credit-coverage {
+    background: linear-gradient(135deg, rgba(66, 165, 245, 0.25), rgba(66, 165, 245, 0.15));
+}
+
+body[data-theme="dark-blue"] .bill-card {
+    background: #1e2a38;
+    border-color: rgba(33, 150, 243, 0.2);
+}
+
+body[data-theme="dark-blue"] .stat-card {
+    background: linear-gradient(135deg, #1565c0, #1976d2);
+}
+
+body[data-theme="dark-blue"] .form-group input,
+body[data-theme="dark-blue"] .form-group select,
+body[data-theme="dark-blue"] .form-group textarea {
+    background: #0a1929;
+    color: #e3f2fd;
+    border-color: #1e3a5f;
+}
+
+body[data-theme="dark-blue"] .template-card {
+    background: #0a1929;
+    border-color: #1e3a5f;
+}
+
+body[data-theme="dark-blue"] .chart-container {
+    background: #0a1929;
+}
+
+@media (max-width: 768px) {
+    body[data-theme="dark-blue"] .tabs {
+        background: linear-gradient(135deg, rgba(30, 42, 56, 0.98), rgba(10, 25, 41, 0.95));
+    }
+    
+    body[data-theme="dark-blue"] .tab-btn:hover {
+        background: rgba(33, 150, 243, 0.2);
+    }
+    
+    body[data-theme="dark-blue"] .tab-btn.active {
+        background: rgba(33, 150, 243, 0.3);
+    }
+}
+
+/* Dark Purple Theme */
+body[data-theme="dark-purple"] {
+    --primary-color: #9C27B0;
+    --secondary-color: #BA68C8;
+    --bg-color: #1a0a29;
+    --card-bg: #2a1a38;
+    --text-primary: #f3e5f5;
+    --text-secondary: #ce93d8;
+    --border-color: #3a1f5f;
+    --shadow: 0 2px 8px rgba(0,0,0,0.5);
+    --shadow-hover: 0 4px 12px rgba(0,0,0,0.7);
+}
+
+body[data-theme="dark-purple"] .balances-section {
+    background: linear-gradient(135deg, rgba(156, 39, 176, 0.2), rgba(186, 104, 200, 0.15));
+    border-color: rgba(156, 39, 176, 0.3);
+}
+
+body[data-theme="dark-purple"] .balance-item {
+    background: rgba(156, 39, 176, 0.12);
+}
+
+body[data-theme="dark-purple"] .balance-input {
+    background: #1a0a29;
+    color: #f3e5f5;
+    border-color: rgba(156, 39, 176, 0.4);
+}
+
+body[data-theme="dark-purple"] .balance-input:focus {
+    border-color: #9C27B0;
+    box-shadow: 0 0 0 3px rgba(156, 39, 176, 0.2);
+}
+
+body[data-theme="dark-purple"] .balances-section .unpaid-total {
+    background: linear-gradient(135deg, rgba(231, 76, 60, 0.25), rgba(231, 76, 60, 0.15));
+    color: #ff8a80;
+}
+
+body[data-theme="dark-purple"] .balance-difference {
+    background: rgba(156, 39, 176, 0.08);
+}
+
+body[data-theme="dark-purple"] .credit-coverage {
+    background: linear-gradient(135deg, rgba(186, 104, 200, 0.25), rgba(186, 104, 200, 0.15));
+}
+
+body[data-theme="dark-purple"] .bill-card {
+    background: #2a1a38;
+    border-color: rgba(156, 39, 176, 0.2);
+}
+
+body[data-theme="dark-purple"] .stat-card {
+    background: linear-gradient(135deg, #7b1fa2, #8e24aa);
+}
+
+body[data-theme="dark-purple"] .form-group input,
+body[data-theme="dark-purple"] .form-group select,
+body[data-theme="dark-purple"] .form-group textarea {
+    background: #1a0a29;
+    color: #f3e5f5;
+    border-color: #3a1f5f;
+}
+
+body[data-theme="dark-purple"] .template-card {
+    background: #1a0a29;
+    border-color: #3a1f5f;
+}
+
+body[data-theme="dark-purple"] .chart-container {
+    background: #1a0a29;
+}
+
+@media (max-width: 768px) {
+    body[data-theme="dark-purple"] .tabs {
+        background: linear-gradient(135deg, rgba(42, 26, 56, 0.98), rgba(26, 10, 41, 0.95));
+    }
+    
+    body[data-theme="dark-purple"] .tab-btn:hover {
+        background: rgba(156, 39, 176, 0.2);
+    }
+    
+    body[data-theme="dark-purple"] .tab-btn.active {
+        background: rgba(156, 39, 176, 0.3);
+    }
 }
 
 @media (max-width: 768px) {
