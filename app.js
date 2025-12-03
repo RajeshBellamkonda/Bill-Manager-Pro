@@ -660,6 +660,22 @@ class BillManagerApp {
     }
 
     async enableNotifications() {
+        // Block iOS devices completely
+        if (this.isIOSDevice()) {
+            alert('⚠️ iOS Safari does not support web notifications.\n\nInstall this app to your home screen for notification support.');
+            this.updateNotificationStatus();
+            return;
+        }
+        
+        // Warn non-Chrome mobile browsers
+        if (this.isMobileBrowser() && !this.isAndroidChrome()) {
+            const proceed = confirm('⚠️ This mobile browser may have limited notification support.\n\nFor best results, use Chrome on Android or install as PWA.\n\nDo you want to continue anyway?');
+            if (!proceed) {
+                this.updateNotificationStatus();
+                return;
+            }
+        }
+
         const granted = await notificationManager.requestPermission();
         if (granted) {
             await database.saveSetting('notificationsEnabled', true);
@@ -673,12 +689,37 @@ class BillManagerApp {
         }
     }
 
+    isMobileBrowser() {
+        return /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent);
+    }
+
+    isAndroidChrome() {
+        const ua = navigator.userAgent;
+        return /Android/i.test(ua) && /Chrome/i.test(ua) && !/Edge|Edg/i.test(ua);
+    }
+
+    isIOSDevice() {
+        return /iPad|iPhone|iPod/.test(navigator.userAgent);
+    }
+
     updateNotificationStatus() {
         const statusText = document.getElementById('notificationPermissionText');
         const notificationsEnabled = document.getElementById('notificationsEnabled').checked;
         
         if (!('Notification' in window)) {
             statusText.innerHTML = '❌ Status: <span style="color: var(--danger-color);">Not supported by browser</span>';
+            return;
+        }
+
+        // Check if iOS device
+        if (this.isIOSDevice()) {
+            statusText.innerHTML = '⚠️ Status: <span style="color: #FF9800;">iOS Safari doesn\'t support web notifications. Install this app to home screen for alerts.</span>';
+            return;
+        }
+        
+        // Show info for non-Chrome mobile browsers
+        if (this.isMobileBrowser() && !this.isAndroidChrome()) {
+            statusText.innerHTML = '⚠️ Status: <span style="color: #FF9800;">Limited browser support. Use Chrome on Android for best results.</span>';
             return;
         }
 
@@ -700,6 +741,18 @@ class BillManagerApp {
         if (!('Notification' in window)) {
             alert('Your browser does not support notifications.');
             return;
+        }
+
+        // Block iOS devices
+        if (this.isIOSDevice()) {
+            alert('⚠️ iOS Safari does not support web push notifications.\n\nTo receive notifications:\n1. Tap the Share button\n2. Select "Add to Home Screen"\n3. Open the app from your home screen\n\nThis installs it as a Progressive Web App with notification support.');
+            return;
+        }
+        
+        // Warn non-Chrome mobile browsers but allow them to try
+        if (this.isMobileBrowser() && !this.isAndroidChrome()) {
+            alert('⚠️ This mobile browser may have limited notification support.\n\nFor best experience:\n1. Use Chrome on Android\n2. Grant notification permissions when prompted\n3. Or install as PWA (Add to Home Screen)');
+            // Don't return - let them try
         }
 
         const granted = await notificationManager.requestPermission();
