@@ -412,6 +412,7 @@ class BillManagerApp {
                             <span class="bill-meta-item"><span class="meta-icon">📅</span>${dueDate.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })}</span>
                             <span class="bill-meta-item"><span class="meta-icon">${frequencyIcon}</span>${this.formatFrequency(bill.frequency)}</span>
                             ${bill.category ? `<span class="bill-meta-item"><span class="meta-icon">📁</span>${bill.category}</span>` : ''}
+                            ${bill.notes ? `<span class="bill-meta-item bill-notes-icon" onclick="event.stopPropagation(); app.showNotesPopup('${bill.notes.replace(/'/g, "\\'").replace(/"/g, '&quot;').replace(/\n/g, '\\n')}', '${bill.name.replace(/'/g, "\\'").replace(/"/g, '&quot;')}')"><span class="meta-icon">📝</span>Notes</span>` : ''}
                         </div>
                         ${bill.notes ? `<div class="bill-notes-preview"><span class="meta-icon">📝</span>${bill.notes}</div>` : ''}
                     </div>
@@ -1568,6 +1569,36 @@ class BillManagerApp {
             toggleText.textContent = 'Hide Balances';
             arrow.textContent = '▲';
         }
+    }
+
+    showNotesPopup(notes, billName) {
+        // Decode HTML entities and escaped characters
+        const decodedNotes = notes.replace(/&quot;/g, '"').replace(/&#39;/g, "'").replace(/\\n/g, '\n');
+        const decodedBillName = billName.replace(/&quot;/g, '"').replace(/&#39;/g, "'");
+        
+        // Create popup
+        const popup = document.createElement('div');
+        popup.className = 'notes-popup-overlay';
+        popup.innerHTML = `
+            <div class="notes-popup">
+                <div class="notes-popup-header">
+                    <h3>📝 Notes: ${decodedBillName}</h3>
+                    <button class="notes-popup-close" onclick="this.closest('.notes-popup-overlay').remove()">&times;</button>
+                </div>
+                <div class="notes-popup-content">
+                    ${decodedNotes.replace(/\n/g, '<br>')}
+                </div>
+            </div>
+        `;
+        
+        // Close on overlay click
+        popup.addEventListener('click', (e) => {
+            if (e.target === popup) {
+                popup.remove();
+            }
+        });
+        
+        document.body.appendChild(popup);
     }
 }
 

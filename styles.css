@@ -757,16 +757,18 @@ header h1 {
 .bill-info-left {
     flex: 1;
     min-width: 0;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
 }
 
 .bill-name {
     font-size: 1.1rem;
     font-weight: 600;
     color: var(--text-primary);
-    margin-bottom: 6px;
-    overflow: hidden;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    word-wrap: break-word;
+    overflow-wrap: break-word;
+    line-height: 1.3;
 }
 
 .bill-notes-preview {
@@ -856,6 +858,22 @@ header h1 {
     
     .bill-actions-row {
         gap: 6px;
+    }
+    
+    .bill-notes-preview {
+        display: none !important;
+    }
+    
+    .bill-notes-icon {
+        cursor: pointer;
+        color: var(--primary-color);
+        font-weight: 600;
+        transition: all 0.2s ease;
+    }
+    
+    .bill-notes-icon:hover {
+        transform: scale(1.05);
+        color: var(--secondary-color);
     }
 }
 
@@ -2377,6 +2395,122 @@ body[data-theme="dark"] .chart-container {
     
     body[data-theme="dark"] .tab-btn.active {
         background: rgba(76, 175, 80, 0.25);
+    }
+}
+
+/* Notes Popup */
+.notes-popup-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.6);
+    backdrop-filter: blur(4px);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 10000;
+    padding: 20px;
+    animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+    }
+    to {
+        opacity: 1;
+    }
+}
+
+.notes-popup {
+    background: var(--bg-color);
+    border-radius: 12px;
+    box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+    max-width: 500px;
+    width: 100%;
+    max-height: 80vh;
+    overflow: hidden;
+    animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(30px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+.notes-popup-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 20px;
+    border-bottom: 2px solid var(--border-color);
+    background: linear-gradient(135deg, rgba(76, 175, 80, 0.1), rgba(33, 150, 243, 0.05));
+}
+
+.notes-popup-header h3 {
+    margin: 0;
+    font-size: 1.2rem;
+    color: var(--text-primary);
+}
+
+.notes-popup-close {
+    background: none;
+    border: none;
+    font-size: 2rem;
+    line-height: 1;
+    cursor: pointer;
+    color: var(--text-secondary);
+    padding: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+}
+
+.notes-popup-close:hover {
+    background: rgba(0, 0, 0, 0.1);
+    color: var(--text-primary);
+}
+
+.notes-popup-content {
+    padding: 20px;
+    font-size: 1rem;
+    line-height: 1.6;
+    color: var(--text-primary);
+    max-height: calc(80vh - 80px);
+    overflow-y: auto;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+}
+
+@media (max-width: 768px) {
+    .notes-popup {
+        max-width: 95%;
+        margin: 10px;
+    }
+    
+    .notes-popup-header {
+        padding: 16px;
+    }
+    
+    .notes-popup-header h3 {
+        font-size: 1rem;
+    }
+    
+    .notes-popup-content {
+        padding: 16px;
+        font-size: 0.95rem;
     }
 }
 
