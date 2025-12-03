@@ -771,6 +771,108 @@ header h1 {
     gap: 15px;
 }
 
+.paid-bills-section {
+    margin-top: 20px;
+    border-radius: 12px;
+    overflow: hidden;
+    background: var(--card-bg);
+    box-shadow: var(--shadow);
+}
+
+.paid-bills-header {
+    padding: 16px 20px;
+    background: linear-gradient(135deg, rgba(76, 175, 80, 0.15), rgba(76, 175, 80, 0.08));
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    transition: all 0.2s ease;
+    border-left: 4px solid var(--success-color);
+}
+
+.paid-bills-header:hover {
+    background: linear-gradient(135deg, rgba(76, 175, 80, 0.2), rgba(76, 175, 80, 0.12));
+}
+
+.paid-bills-summary {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex: 1;
+}
+
+.paid-bills-icon {
+    font-size: 1.3rem;
+}
+
+.paid-bills-title {
+    font-weight: 600;
+    font-size: 1.05rem;
+    color: var(--text-primary);
+}
+
+.paid-bills-total {
+    font-weight: 700;
+    font-size: 1.1rem;
+    color: var(--success-color);
+    margin-left: auto;
+    margin-right: 15px;
+}
+
+.paid-bills-toggle {
+    font-size: 1.2rem;
+    color: var(--text-secondary);
+    transition: transform 0.3s ease;
+}
+
+.paid-bills-content {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.4s ease-out;
+    background: var(--bg-color);
+}
+
+.paid-bills-content.collapsed {
+    max-height: 0;
+}
+
+.paid-bills-content.expanded {
+    max-height: 5000px;
+    transition: max-height 0.5s ease-in;
+}
+
+.paid-bills-content .bill-card {
+    margin: 15px;
+    border-radius: 10px;
+}
+
+.paid-bills-content .bill-card:first-child {
+    margin-top: 20px;
+}
+
+.paid-bills-content .bill-card:last-child {
+    margin-bottom: 20px;
+}
+
+@media (max-width: 768px) {
+    .paid-bills-header {
+        padding: 14px 16px;
+    }
+    
+    .paid-bills-title {
+        font-size: 0.95rem;
+    }
+    
+    .paid-bills-total {
+        font-size: 1rem;
+        margin-right: 10px;
+    }
+    
+    .paid-bills-content .bill-card {
+        margin: 12px;
+    }
+}
+
 .bill-card {
     background: var(--card-bg);
     padding: 16px 20px;

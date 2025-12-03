@@ -295,15 +295,15 @@ class BillManagerApp {
         const bills = await database.getBillsByMonth(year, month);
         
         // Calculate unpaid total
-        const unpaidBills = bills.filter(bill => !bill.isPaid);
-        const unpaidTotal = unpaidBills.reduce((sum, bill) => {
+        const unpaidBillsList = bills.filter(bill => !bill.isPaid);
+        const unpaidTotal = unpaidBillsList.reduce((sum, bill) => {
             const amount = typeof bill.amount === 'number' ? bill.amount : parseFloat(bill.amount) || 0;
             return sum + amount;
         }, 0);
         
         // Update unpaid total display
         const unpaidTotalEl = document.getElementById('unpaidTotal');
-        if (unpaidBills.length > 0) {
+        if (unpaidBillsList.length > 0) {
             unpaidTotalEl.textContent = `Unpaid: ${this.currencySymbol}${unpaidTotal.toFixed(2)}`;
             unpaidTotalEl.style.display = 'block';
         } else {
@@ -326,9 +326,9 @@ class BillManagerApp {
             }
             
             // Calculate credit coverage - how far credit can cover unpaid bills
-            if (credit > 0 && unpaidBills.length > 0) {
+            if (credit > 0 && unpaidBillsList.length > 0) {
                 // Sort unpaid bills by due date
-                const sortedUnpaidBills = unpaidBills.sort((a, b) => 
+                const sortedUnpaidBills = unpaidBillsList.sort((a, b) => 
                     new Date(a.dueDate) - new Date(b.dueDate)
                 );
                 
@@ -359,7 +359,7 @@ class BillManagerApp {
                     creditCoverageEl.innerHTML = `<span class="credit-coverage-info credit-insufficient">⚠️ Credit insufficient to cover any bills</span>`;
                     creditCoverageEl.style.display = 'block';
                 }
-            } else if (credit > 0 && unpaidBills.length === 0) {
+            } else if (credit > 0 && unpaidBillsList.length === 0) {
                 creditCoverageEl.innerHTML = `<span class="credit-coverage-info">✅ No unpaid bills to cover</span>`;
                 creditCoverageEl.style.display = 'block';
             } else {
@@ -382,19 +382,61 @@ class BillManagerApp {
             return;
         }
 
-        // Sort bills by due date for credit balance calculation
-        const sortedBills = [...bills].sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
-        let remainingCredit = credit;
+        // Separate paid and unpaid bills
+        const paidBills = bills.filter(b => b.isPaid).sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+        const unpaidBills = bills.filter(b => !b.isPaid).sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
         
-        timeline.innerHTML = sortedBills.map(bill => {
-            const billHtml = this.createBillCard(bill, remainingCredit);
-            // Deduct from credit if bill is unpaid
-            if (!bill.isPaid) {
-                const billAmount = typeof bill.amount === 'number' ? bill.amount : parseFloat(bill.amount) || 0;
-                remainingCredit = Math.max(0, remainingCredit - billAmount);
-            }
-            return billHtml;
-        }).join('');
+        // Calculate paid bills total
+        const paidTotal = paidBills.reduce((sum, bill) => {
+            const amount = typeof bill.amount === 'number' ? bill.amount : parseFloat(bill.amount) || 0;
+            return sum + amount;
+        }, 0);
+
+        let remainingCredit = credit;
+        let html = '';
+        
+        // Add collapsed paid bills section first
+        if (paidBills.length > 0) {
+            html += `
+                <div class="paid-bills-section">
+                    <div class="paid-bills-header" onclick="app.togglePaidBills()">
+                        <div class="paid-bills-summary">
+                            <span class="paid-bills-icon">✅</span>
+                            <span class="paid-bills-title">Paid Bills (${paidBills.length})</span>
+                            <span class="paid-bills-total">${this.currencySymbol}${paidTotal.toFixed(2)}</span>
+                        </div>
+                        <span class="paid-bills-toggle" id="paidBillsToggle">▼</span>
+                    </div>
+                    <div class="paid-bills-content collapsed" id="paidBillsContent">
+                        ${paidBills.map(bill => this.createBillCard(bill, 0)).join('')}
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Add unpaid bills after
+        unpaidBills.forEach(bill => {
+            html += this.createBillCard(bill, remainingCredit);
+            const billAmount = typeof bill.amount === 'number' ? bill.amount : parseFloat(bill.amount) || 0;
+            remainingCredit = Math.max(0, remainingCredit - billAmount);
+        });
+        
+        timeline.innerHTML = html;
+    }
+
+    togglePaidBills() {
+        const content = document.getElementById('paidBillsContent');
+        const toggle = document.getElementById('paidBillsToggle');
+        
+        if (content.classList.contains('collapsed')) {
+            content.classList.remove('collapsed');
+            content.classList.add('expanded');
+            toggle.textContent = '▲';
+        } else {
+            content.classList.add('collapsed');
+            content.classList.remove('expanded');
+            toggle.textContent = '▼';
+        }
     }
 
     createBillCard(bill, creditBeforeThisBill = 0) {
