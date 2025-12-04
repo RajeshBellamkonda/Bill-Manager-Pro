@@ -89,6 +89,7 @@ class BillDatabase {
             reminderDays: parseInt(bill.reminderDays) || 3,
             status: bill.status || 'pending',
             isPaid: bill.isPaid || false,
+            isCredit: bill.isCredit || false,
             profileId: this.currentProfile,
             createdAt: new Date().toISOString(),
             lastModified: new Date().toISOString()
@@ -521,9 +522,11 @@ class BillDatabase {
     async getMonthlySpending(year, month, status = 'paid') {
         const bills = await this.getBillsByMonth(year, month);
         return bills.reduce((total, bill) => {
-            if (status === 'all') return total + bill.amount;
-            if (status === 'paid' && bill.isPaid === true) return total + bill.amount;
-            if (status === 'unpaid' && bill.isPaid === false) return total + bill.amount;
+            const isCredit = bill.isCredit || false;
+            const amount = isCredit ? -bill.amount : bill.amount;
+            if (status === 'all') return total + amount;
+            if (status === 'paid' && bill.isPaid === true) return total + amount;
+            if (status === 'unpaid' && bill.isPaid === false) return total + amount;
             return total;
         }, 0);
     }
@@ -544,7 +547,9 @@ class BillDatabase {
             
             if (include) {
                 const category = bill.category || 'Uncategorized';
-                categories[category] = (categories[category] || 0) + bill.amount;
+                const isCredit = bill.isCredit || false;
+                const amount = isCredit ? -bill.amount : bill.amount;
+                categories[category] = (categories[category] || 0) + amount;
             }
         });
 

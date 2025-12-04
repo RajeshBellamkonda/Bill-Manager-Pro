@@ -296,11 +296,13 @@ class BillManagerApp {
         // Get bills for this month
         const bills = await database.getBillsByMonth(year, month);
         
-        // Calculate unpaid total
+        // Calculate unpaid total (expenses minus credits)
         const unpaidBillsList = bills.filter(bill => !bill.isPaid);
         const unpaidTotal = unpaidBillsList.reduce((sum, bill) => {
             const amount = typeof bill.amount === 'number' ? bill.amount : parseFloat(bill.amount) || 0;
-            return sum + amount;
+            const isCredit = bill.isCredit || false;
+            // Credits reduce the total, expenses increase it
+            return sum + (isCredit ? -amount : amount);
         }, 0);
         
         // Update unpaid total display
@@ -340,7 +342,15 @@ class BillManagerApp {
                 
                 for (const bill of sortedUnpaidBills) {
                     const billAmount = typeof bill.amount === 'number' ? bill.amount : parseFloat(bill.amount) || 0;
-                    if (remainingCredit >= billAmount) {
+                    const isCredit = bill.isCredit || false;
+                    
+                    if (isCredit) {
+                        // Credits add to available balance
+                        remainingCredit += billAmount;
+                        coveredUntilDate = new Date(bill.dueDate);
+                        billsCovered++;
+                    } else if (remainingCredit >= billAmount) {
+                        // Expenses subtract from available balance
                         remainingCredit -= billAmount;
                         coveredUntilDate = new Date(bill.dueDate);
                         billsCovered++;
@@ -388,10 +398,11 @@ class BillManagerApp {
         const paidBills = bills.filter(b => b.isPaid).sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
         const unpaidBills = bills.filter(b => !b.isPaid).sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
         
-        // Calculate paid bills total
+        // Calculate paid bills total (expenses minus credits)
         const paidTotal = paidBills.reduce((sum, bill) => {
             const amount = typeof bill.amount === 'number' ? bill.amount : parseFloat(bill.amount) || 0;
-            return sum + amount;
+            const isCredit = bill.isCredit || false;
+            return sum + (isCredit ? -amount : amount);
         }, 0);
 
         let remainingCredit = credit;
@@ -399,13 +410,14 @@ class BillManagerApp {
         
         // Add collapsed paid bills section first
         if (paidBills.length > 0) {
+            const totalLabel = paidTotal >= 0 ? `${this.currencySymbol}${paidTotal.toFixed(2)}` : `-${this.currencySymbol}${Math.abs(paidTotal).toFixed(2)}`;
             html += `
                 <div class="paid-bills-section">
                     <div class="paid-bills-header" onclick="app.togglePaidBills()">
                         <div class="paid-bills-summary">
                             <span class="paid-bills-icon">✅</span>
                             <span class="paid-bills-title">Paid Bills (${paidBills.length})</span>
-                            <span class="paid-bills-total">${this.currencySymbol}${paidTotal.toFixed(2)}</span>
+                            <span class="paid-bills-total">${totalLabel}</span>
                         </div>
                         <span class="paid-bills-toggle" id="paidBillsToggle">▼</span>
                     </div>
@@ -420,7 +432,9 @@ class BillManagerApp {
         unpaidBills.forEach(bill => {
             html += this.createBillCard(bill, remainingCredit);
             const billAmount = typeof bill.amount === 'number' ? bill.amount : parseFloat(bill.amount) || 0;
-            remainingCredit = Math.max(0, remainingCredit - billAmount);
+            const isCredit = bill.isCredit || false;
+            // Credits add to remaining credit, expenses subtract from it
+            remainingCredit = isCredit ? remainingCredit + billAmount : Math.max(0, remainingCredit - billAmount);
         });
         
         timeline.innerHTML = html;
@@ -444,6 +458,7 @@ class BillManagerApp {
     createBillCard(bill, creditBeforeThisBill = 0) {
         // Ensure amount is a number (defensive coding for any legacy data)
         const amount = typeof bill.amount === 'number' ? bill.amount : parseFloat(bill.amount) || 0;
+        const isCredit = bill.isCredit || false;
         
         const dueDate = new Date(bill.dueDate);
         const today = new Date();
@@ -455,15 +470,20 @@ class BillManagerApp {
         let statusClass = '';
         let statusBadge = '';
         
-        // Calculate credit balance for unpaid bills
+        // Calculate credit balance for unpaid bills (only for expenses, not credits)
         let creditBalanceBadge = '';
-        if (!bill.isPaid && creditBeforeThisBill > 0) {
+        if (!bill.isPaid && !isCredit && creditBeforeThisBill > 0) {
             const creditAfter = creditBeforeThisBill - amount;
             if (creditAfter >= 0) {
                 creditBalanceBadge = `<span class="credit-balance-badge credit-sufficient">💰 Credit: ${this.currencySymbol}${creditAfter.toFixed(2)}</span>`;
             } else {
                 creditBalanceBadge = `<span class="credit-balance-badge credit-insufficient">⚠️ Short: ${this.currencySymbol}${Math.abs(creditAfter).toFixed(2)}</span>`;
             }
+        }
+        
+        // Add credit indicator badge
+        if (isCredit) {
+            statusClass = 'credit-bill';
         }
         
         if (bill.isPaid) {
@@ -506,8 +526,8 @@ class BillManagerApp {
                         ${bill.notes ? `<div class="bill-notes-preview"><span class="meta-icon">📝</span>${bill.notes}</div>` : ''}
                     </div>
                     <div class="bill-amount-section">
-                        <div class="bill-amount">${this.currencySymbol}${amount.toFixed(2)}</div>
-                        ${statusBadge}
+                        <div class="bill-amount ${isCredit ? 'credit-amount' : ''}">${isCredit ? '+' : ''}${this.currencySymbol}${amount.toFixed(2)}</div>
+                        ${isCredit ? '<span class="status-badge status-credit">💵 Credit</span>' : statusBadge}
                     </div>
                 </div>
                 <div class="bill-card-row bill-actions-row">
@@ -567,7 +587,8 @@ class BillManagerApp {
             frequency: document.getElementById('billFrequency').value,
             category: document.getElementById('billCategory').value,
             notes: document.getElementById('billNotes').value,
-            reminderDays: parseInt(document.getElementById('reminderDays').value) || 3
+            reminderDays: parseInt(document.getElementById('reminderDays').value) || 3,
+            isCredit: document.getElementById('isCredit').checked || false
         };
 
         try {
@@ -612,6 +633,7 @@ class BillManagerApp {
             document.getElementById('billCategory').value = bill.category;
             document.getElementById('billNotes').value = bill.notes;
             document.getElementById('reminderDays').value = bill.reminderDays;
+            document.getElementById('isCredit').checked = bill.isCredit || false;
             document.getElementById('formTitle').textContent = 'Edit Bill';
             
             // Switch to form tab
@@ -1998,8 +2020,8 @@ class BillManagerApp {
         try {
             await database.saveSetting(creditKey, creditValue);
             
-            // Recalculate balance difference and credit coverage
-            await this.updateBalanceCalculations();
+            // Reload timeline to refresh bills with updated credit calculations
+            await this.loadTimeline();
             
             // Show success feedback
             const saveBtn = document.getElementById('saveCreditBtn');
