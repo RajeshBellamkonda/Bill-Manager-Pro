@@ -77,6 +77,8 @@ class BillManagerApp {
         const currentTab = document.querySelector('.tab-btn.active')?.dataset.tab;
         if (currentTab === 'settings') {
             await this.loadSettings();
+        } else if (currentTab === 'analytics') {
+            await this.loadAnalytics();
         }
     }
 
@@ -936,8 +938,9 @@ class BillManagerApp {
         // Initialize analytics filters state
         if (!this.analyticsFilters) {
             this.analyticsFilters = {
-                timeRange: 12,
+                timeRange: 'current',
                 category: 'all',
+                status: 'all',
                 selectedMonth: null
             };
         }
@@ -978,20 +981,28 @@ class BillManagerApp {
     setupAnalyticsFilters() {
         const timeRangeSelect = document.getElementById('analyticsTimeRange');
         const categoryFilter = document.getElementById('analyticsCategoryFilter');
+        const statusFilter = document.getElementById('analyticsStatusFilter');
         const resetBtn = document.getElementById('analyticsResetBtn');
 
         // Remove old listeners if any
         timeRangeSelect.replaceWith(timeRangeSelect.cloneNode(true));
         categoryFilter.replaceWith(categoryFilter.cloneNode(true));
+        statusFilter.replaceWith(statusFilter.cloneNode(true));
         resetBtn.replaceWith(resetBtn.cloneNode(true));
 
         // Get fresh references
         const timeRange = document.getElementById('analyticsTimeRange');
         const category = document.getElementById('analyticsCategoryFilter');
+        const status = document.getElementById('analyticsStatusFilter');
         const reset = document.getElementById('analyticsResetBtn');
 
         timeRange.addEventListener('change', async (e) => {
-            this.analyticsFilters.timeRange = e.target.value === 'all' ? 'all' : parseInt(e.target.value);
+            const value = e.target.value;
+            if (value === 'all' || value === 'current') {
+                this.analyticsFilters.timeRange = value;
+            } else {
+                this.analyticsFilters.timeRange = parseInt(value);
+            }
             this.analyticsFilters.selectedMonth = null; // Reset month selection
             await this.refreshAnalytics();
         });
@@ -1001,14 +1012,21 @@ class BillManagerApp {
             await this.refreshAnalytics();
         });
 
+        status.addEventListener('change', async (e) => {
+            this.analyticsFilters.status = e.target.value;
+            await this.refreshAnalytics();
+        });
+
         reset.addEventListener('click', async () => {
             this.analyticsFilters = {
-                timeRange: 12,
+                timeRange: 'current',
                 category: 'all',
+                status: 'all',
                 selectedMonth: null
             };
-            timeRange.value = '12';
+            timeRange.value = 'current';
             category.value = 'all';
+            status.value = 'all';
             await this.refreshAnalytics();
         });
     }
@@ -1038,6 +1056,7 @@ class BillManagerApp {
     async refreshAnalytics() {
         await chartManager.updateAllCharts(this.analyticsFilters);
         await this.updateDetailedReport();
+        await this.updateCategoryBillsList();
         this.updateActiveFiltersDisplay();
     }
 
@@ -1049,13 +1068,20 @@ class BillManagerApp {
             filters.push(`📅 ${this.analyticsFilters.selectedMonth}`);
         } else {
             const timeRange = this.analyticsFilters.timeRange;
-            if (timeRange !== 'all') {
+            if (timeRange === 'current') {
+                filters.push(`📅 Current Month`);
+            } else if (timeRange !== 'all') {
                 filters.push(`📊 Last ${timeRange} months`);
             }
         }
 
         if (this.analyticsFilters.category !== 'all') {
             filters.push(`📁 ${this.analyticsFilters.category}`);
+        }
+
+        if (this.analyticsFilters.status !== 'all') {
+            const statusLabel = this.analyticsFilters.status === 'paid' ? '✅ Paid Only' : '⏳ Unpaid Only';
+            filters.push(statusLabel);
         }
 
         if (filters.length > 0) {
@@ -1075,6 +1101,13 @@ class BillManagerApp {
             bills = bills.filter(b => b.category === this.analyticsFilters.category);
         }
 
+        // Apply status filter
+        if (this.analyticsFilters.status === 'paid') {
+            bills = bills.filter(b => b.isPaid === true);
+        } else if (this.analyticsFilters.status === 'unpaid') {
+            bills = bills.filter(b => b.isPaid === false);
+        }
+
         // Apply time range filter
         if (this.analyticsFilters.selectedMonth) {
             // Specific month selected from chart click
@@ -1082,6 +1115,15 @@ class BillManagerApp {
                 const date = new Date(b.dueDate);
                 const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
                 return this.analyticsFilters.selectedMonth === key;
+            });
+        } else if (this.analyticsFilters.timeRange === 'current') {
+            // Current month only
+            const now = new Date();
+            const currentYear = now.getFullYear();
+            const currentMonth = now.getMonth();
+            bills = bills.filter(b => {
+                const date = new Date(b.dueDate);
+                return date.getFullYear() === currentYear && date.getMonth() === currentMonth;
             });
         } else if (this.analyticsFilters.timeRange !== 'all') {
             const now = new Date();
@@ -1142,6 +1184,112 @@ class BillManagerApp {
             this.analyticsFilters.selectedMonth = monthKey;
         }
         await this.refreshAnalytics();
+    }
+
+    async toggleCategoryFromLegend(category) {
+        if (this.analyticsFilters.category === category) {
+            this.analyticsFilters.category = 'all';
+            document.getElementById('analyticsCategoryFilter').value = 'all';
+        } else {
+            this.analyticsFilters.category = category;
+            document.getElementById('analyticsCategoryFilter').value = category;
+        }
+        await this.refreshAnalytics();
+    }
+
+    async updateCategoryBillsList() {
+        const categoryBillsInfo = document.getElementById('categoryBillsInfo');
+        const categoryBillsList = document.getElementById('categoryBillsList');
+        
+        // Only show if a specific category is selected
+        if (!this.analyticsFilters.category || this.analyticsFilters.category === 'all') {
+            categoryBillsInfo.style.display = 'none';
+            categoryBillsList.innerHTML = '';
+            return;
+        }
+
+        let bills = await database.getAllBills();
+        const selectedCategory = this.analyticsFilters.category;
+        
+        // Filter by category
+        bills = bills.filter(b => b.category === selectedCategory);
+        
+        // Apply status filter
+        if (this.analyticsFilters.status === 'paid') {
+            bills = bills.filter(b => b.isPaid === true);
+        } else if (this.analyticsFilters.status === 'unpaid') {
+            bills = bills.filter(b => b.isPaid === false);
+        }
+        
+        // Apply time range filter
+        if (this.analyticsFilters.selectedMonth) {
+            bills = bills.filter(b => {
+                const date = new Date(b.dueDate);
+                const key = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+                return this.analyticsFilters.selectedMonth === key;
+            });
+        } else if (this.analyticsFilters.timeRange === 'current') {
+            // Current month only
+            const now = new Date();
+            const currentYear = now.getFullYear();
+            const currentMonth = now.getMonth();
+            bills = bills.filter(b => {
+                const date = new Date(b.dueDate);
+                return date.getFullYear() === currentYear && date.getMonth() === currentMonth;
+            });
+        } else if (this.analyticsFilters.timeRange !== 'all') {
+            const now = new Date();
+            const cutoffDate = new Date();
+            cutoffDate.setMonth(now.getMonth() - this.analyticsFilters.timeRange);
+            bills = bills.filter(b => new Date(b.dueDate) >= cutoffDate);
+        }
+        
+        // Sort by due date (newest first)
+        bills.sort((a, b) => new Date(b.dueDate) - new Date(a.dueDate));
+        
+        if (bills.length === 0) {
+            categoryBillsInfo.innerHTML = `<span class="filter-tag">No bills found in category: ${selectedCategory}</span>`;
+            categoryBillsInfo.style.display = 'block';
+            categoryBillsList.innerHTML = '';
+            return;
+        }
+        
+        // Calculate totals
+        const paidBills = bills.filter(b => b.isPaid);
+        const unpaidBills = bills.filter(b => !b.isPaid);
+        const totalPaid = paidBills.reduce((sum, b) => sum + b.amount, 0);
+        const totalUnpaid = unpaidBills.reduce((sum, b) => sum + b.amount, 0);
+        
+        categoryBillsInfo.innerHTML = `
+            <span class="filter-tag">${selectedCategory}: ${bills.length} bills • Paid: ${this.currencySymbol}${totalPaid.toFixed(2)} • Unpaid: ${this.currencySymbol}${totalUnpaid.toFixed(2)}</span>
+        `;
+        categoryBillsInfo.style.display = 'block';
+        
+        // Create bills list
+        let html = '<table class="report-table"><thead><tr><th>Bill Name</th><th>Due Date</th><th>Amount</th><th>Status</th></tr></thead><tbody>';
+        
+        bills.forEach(bill => {
+            const dueDate = new Date(bill.dueDate);
+            const formattedDate = dueDate.toLocaleDateString('en-US', { 
+                month: 'short', 
+                day: 'numeric',
+                year: 'numeric'
+            });
+            const statusClass = bill.isPaid ? 'status-paid' : 'status-pending';
+            const statusText = bill.isPaid ? '✓ Paid' : '📅 Pending';
+            
+            html += `
+                <tr>
+                    <td>${bill.name}</td>
+                    <td>${formattedDate}</td>
+                    <td>${this.currencySymbol}${bill.amount.toFixed(2)}</td>
+                    <td><span class="status-badge ${statusClass}">${statusText}</span></td>
+                </tr>
+            `;
+        });
+        
+        html += '</tbody></table>';
+        categoryBillsList.innerHTML = html;
     }
 
     async loadSettings() {
@@ -1652,42 +1800,50 @@ class BillManagerApp {
             }
             
             // Confirm import
-            const confirmed = confirm(`Import data from backup dated ${new Date(importData.exportDate).toLocaleDateString()}?\n\n⚠️ WARNING: This will DELETE ALL existing profiles and data, then import the backup.\n\nAre you sure you want to continue?`);
+            const confirmed = confirm(`Import data from backup dated ${new Date(importData.exportDate).toLocaleDateString()}?\n\n⚠️ WARNING: This will completely DELETE the database and recreate it from the backup.\n\nAre you sure you want to continue?`);
             if (!confirmed) {
                 event.target.value = '';
                 return;
             }
             
-            // Delete all existing profiles (which will cascade delete bills and templates)
-            const existingProfiles = await database.getAllProfiles();
-            for (const profile of existingProfiles) {
-                await database.deleteProfile(profile.id);
+            // Save theme preference before deleting database
+            const savedTheme = await database.getSetting('theme');
+            
+            // Close the database connection
+            if (database.db) {
+                database.db.close();
             }
             
-            // Clear all settings except theme preference
-            const savedTheme = await database.getSetting('theme');
-            const settingsTransaction = database.db.transaction(['settings'], 'readwrite');
-            const settingsStore = settingsTransaction.objectStore('settings');
-            await new Promise((resolve) => {
-                settingsStore.clear();
-                settingsTransaction.oncomplete = () => resolve();
+            // Delete the entire database
+            await new Promise((resolve, reject) => {
+                const deleteRequest = indexedDB.deleteDatabase('BillManagerDB');
+                deleteRequest.onsuccess = () => resolve();
+                deleteRequest.onerror = () => reject(deleteRequest.error);
+                deleteRequest.onblocked = () => {
+                    alert('Database deletion blocked. Please close all other tabs with this app open and try again.');
+                    reject(new Error('Database deletion blocked'));
+                };
             });
             
-            // Restore theme
-            if (savedTheme) {
-                await database.saveSetting('theme', savedTheme);
-            }
+            // Reinitialize the database
+            await database.init();
             
             // Create profile ID mapping (old ID -> new ID)
             const profileIdMap = new Map();
             
-            // Import profiles first and create mapping
+            // Import profiles directly with original IDs
             if (importData.profiles && importData.profiles.length > 0) {
-                for (const importProfile of importData.profiles) {
-                    // Create new profile with original name
-                    const newProfileId = await database.createProfile(importProfile.name);
-                    profileIdMap.set(importProfile.id, newProfileId);
-                }
+                await new Promise((resolve, reject) => {
+                    const transaction = database.db.transaction(['profiles'], 'readwrite');
+                    const store = transaction.objectStore('profiles');
+                    
+                    for (const profile of importData.profiles) {
+                        store.add(profile);
+                    }
+                    
+                    transaction.oncomplete = () => resolve();
+                    transaction.onerror = () => reject(transaction.error);
+                });
             }
             
             // Import categories
@@ -1695,19 +1851,14 @@ class BillManagerApp {
                 await database.saveSetting('categories', importData.categories);
             }
             
-            // Import bills with mapped profile IDs
+            // Import bills directly with original IDs and profileIds
             if (importData.bills && importData.bills.length > 0) {
                 await new Promise((resolve, reject) => {
                     const transaction = database.db.transaction(['bills'], 'readwrite');
                     const store = transaction.objectStore('bills');
                     
                     for (const bill of importData.bills) {
-                        // Map the profile ID to the correct one
-                        const mappedBill = { ...bill };
-                        if (profileIdMap.has(bill.profileId)) {
-                            mappedBill.profileId = profileIdMap.get(bill.profileId);
-                        }
-                        store.add(mappedBill);
+                        store.add(bill);
                     }
                     
                     transaction.oncomplete = () => resolve();
@@ -1715,19 +1866,14 @@ class BillManagerApp {
                 });
             }
             
-            // Import templates with mapped profile IDs
+            // Import templates directly with original IDs and profileIds
             if (importData.templates && importData.templates.length > 0) {
                 await new Promise((resolve, reject) => {
                     const transaction = database.db.transaction(['templates'], 'readwrite');
                     const store = transaction.objectStore('templates');
                     
                     for (const template of importData.templates) {
-                        // Map the profile ID to the correct one
-                        const mappedTemplate = { ...template };
-                        if (profileIdMap.has(template.profileId)) {
-                            mappedTemplate.profileId = profileIdMap.get(template.profileId);
-                        }
-                        store.add(mappedTemplate);
+                        store.add(template);
                     }
                     
                     transaction.oncomplete = () => resolve();
@@ -1735,14 +1881,23 @@ class BillManagerApp {
                 });
             }
             
-            // Import all settings
+            // Import all settings directly (including monthly credits with original profile IDs)
             if (importData.settings) {
                 for (const setting of importData.settings) {
                     // Skip currentProfileId, we'll set it to the first imported profile
-                    if (setting.key !== 'currentProfileId' && setting.key !== 'theme') {
-                        await database.saveSetting(setting.key, setting.value);
+                    // Skip theme, we'll restore the saved one
+                    if (setting.key === 'currentProfileId' || setting.key === 'theme') {
+                        continue;
                     }
+                    
+                    // Import all settings as-is (including monthly credits)
+                    await database.saveSetting(setting.key, setting.value);
                 }
+            }
+            
+            // Restore theme preference
+            if (savedTheme) {
+                await database.saveSetting('theme', savedTheme);
             }
             
             // Set current profile to the first imported profile

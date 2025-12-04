@@ -107,7 +107,7 @@ class ChartManager {
 
         const ctx = canvas.getContext('2d');
         const width = canvas.width = canvas.offsetWidth;
-        const height = canvas.height = 300;
+        const height = canvas.height = 400;
 
         // Clear canvas
         ctx.clearRect(0, 0, width, height);
@@ -123,7 +123,7 @@ class ChartManager {
         const total = data.reduce((sum, val) => sum + val, 0);
         const centerX = width / 2;
         const centerY = height / 2;
-        const radius = Math.min(width, height) / 3;
+        const radius = Math.min(width, height) / 2.5;
 
         const colors = [
             '#4CAF50', '#2196F3', '#FFC107', '#FF5722', 
@@ -181,6 +181,9 @@ class ChartManager {
             currentAngle += sliceAngle;
         });
 
+        // Create legend
+        this.createLegend(data, labels, colors, total);
+
         // Setup click handler
         canvas.style.cursor = 'pointer';
         canvas.onclick = (e) => {
@@ -215,18 +218,63 @@ class ChartManager {
         };
     }
 
-    async renderSpendingTrend(filters = {}) {
-        const timeRange = filters.timeRange || 12;
-        const category = filters.category || 'all';
+    createLegend(data, labels, colors, total) {
+        const legendContainer = document.getElementById('categoryLegend');
+        if (!legendContainer) return;
+
+        // Create array of items with all data
+        const items = data.map((value, index) => ({
+            value,
+            label: labels[index],
+            color: colors[index % colors.length],
+            percentage: (value / total) * 100
+        }));
+
+        // Sort by percentage descending
+        items.sort((a, b) => b.percentage - a.percentage);
+
+        let legendHTML = '<div class="legend-items">';
         
-        let trendData = await database.getSpendingTrend(timeRange === 'all' ? 60 : timeRange);
+        items.forEach(item => {
+            const isSelected = app.analyticsFilters && app.analyticsFilters.category === item.label;
+            
+            legendHTML += `
+                <div class="legend-item ${isSelected ? 'legend-item-selected' : ''}" onclick="app.toggleCategoryFromLegend('${item.label}')">
+                    <span class="legend-color" style="background-color: ${item.color}"></span>
+                    <span class="legend-label">${item.label}</span>
+                    <span class="legend-value">${app.currencySymbol}${item.value.toFixed(2)}</span>
+                    <span class="legend-percent">(${item.percentage.toFixed(1)}%)</span>
+                </div>
+            `;
+        });
+        
+        legendHTML += '</div>';
+        legendContainer.innerHTML = legendHTML;
+    }
+
+    async renderSpendingTrend(filters = {}) {
+        const timeRange = filters.timeRange || 'current';
+        const category = filters.category || 'all';
+        const status = filters.status || 'all';
+        
+        // Determine how many months to fetch
+        let monthsToFetch;
+        if (timeRange === 'all') {
+            monthsToFetch = 60;
+        } else if (timeRange === 'current') {
+            monthsToFetch = 1;
+        } else {
+            monthsToFetch = parseInt(timeRange);
+        }
+        
+        let trendData = await database.getSpendingTrend(monthsToFetch, status);
         
         // Apply category filter if needed
         if (category !== 'all') {
             const filteredData = [];
             for (const dataPoint of trendData) {
                 const [year, month] = dataPoint.monthKey.split('-');
-                const categorySpending = await database.getSpendingByCategory(parseInt(year), parseInt(month) - 1);
+                const categorySpending = await database.getSpendingByCategory(parseInt(year), parseInt(month) - 1, status);
                 const amount = categorySpending[category] || 0;
                 filteredData.push({
                     month: dataPoint.month,
@@ -246,19 +294,30 @@ class ChartManager {
 
     async renderCategoryBreakdown(filters = {}) {
         let categories = {};
+        const status = filters.status || 'all';
         
         if (filters.selectedMonth) {
             // Show categories for specific month
             const [year, month] = filters.selectedMonth.split('-');
-            categories = await database.getSpendingByCategory(parseInt(year), parseInt(month) - 1);
+            categories = await database.getSpendingByCategory(parseInt(year), parseInt(month) - 1, status);
         } else {
             // Aggregate across time range
-            const timeRange = filters.timeRange || 12;
+            const timeRange = filters.timeRange || 'current';
             const now = new Date();
             
-            for (let i = 0; i < (timeRange === 'all' ? 60 : timeRange); i++) {
+            // Determine how many months to iterate
+            let monthsToIterate;
+            if (timeRange === 'all') {
+                monthsToIterate = 60;
+            } else if (timeRange === 'current') {
+                monthsToIterate = 1;
+            } else {
+                monthsToIterate = parseInt(timeRange);
+            }
+            
+            for (let i = 0; i < monthsToIterate; i++) {
                 const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-                const monthCategories = await database.getSpendingByCategory(date.getFullYear(), date.getMonth());
+                const monthCategories = await database.getSpendingByCategory(date.getFullYear(), date.getMonth(), status);
                 
                 for (const [cat, amount] of Object.entries(monthCategories)) {
                     categories[cat] = (categories[cat] || 0) + amount;
