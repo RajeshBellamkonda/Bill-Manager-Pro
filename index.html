@@ -64,9 +64,12 @@
         <!-- Timeline View -->
         <div id="timeline-tab" class="tab-content active">
             <div class="timeline-header">
-                <button id="prevMonth" class="nav-btn">← Previous</button>
                 <div class="timeline-header-center">
-                    <h2 id="currentMonth"></h2>
+                    <div class="month-navigation">
+                        <button id="prevMonth" class="nav-btn nav-btn-compact">←</button>
+                        <h2 id="currentMonth"></h2>
+                        <button id="nextMonth" class="nav-btn nav-btn-compact">→</button>
+                    </div>
                     <button id="toggleBalancesBtn" class="toggle-balances-btn">
                         <span id="balancesToggleText">Show Balances</span>
                         <span class="toggle-arrow">▼</span>
@@ -82,7 +85,6 @@
                         <div id="creditCoverage" class="credit-coverage"></div>
                     </div>
                 </div>
-                <button id="nextMonth" class="nav-btn">Next →</button>
             </div>
             <button id="quickAddBillBtn" class="quick-add-btn" title="Quick Add Bill">
                 <span class="plus-icon">+</span>
