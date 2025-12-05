@@ -70,17 +70,49 @@ class BillManagerApp {
         database.setCurrentProfile(parseInt(profileId));
         await database.saveSetting('currentProfileId', parseInt(profileId));
         
+        // Reset analytics filters to default
+        if (this.analyticsFilters) {
+            this.analyticsFilters = {
+                timeRange: 'current',
+                category: 'all',
+                status: 'all',
+                billName: '',
+                selectedMonth: null
+            };
+            
+            // Reset filter UI elements
+            const timeRangeFilter = document.getElementById('analyticsTimeRange');
+            const categoryFilter = document.getElementById('analyticsCategoryFilter');
+            const statusFilter = document.getElementById('analyticsStatusFilter');
+            const billNameFilter = document.getElementById('analyticsBillName');
+            
+            if (timeRangeFilter) timeRangeFilter.value = 'current';
+            if (categoryFilter) categoryFilter.value = 'all';
+            if (statusFilter) statusFilter.value = 'all';
+            if (billNameFilter) billNameFilter.value = '';
+            
+            // Force pie chart to redraw with new data
+            if (window.chartManager) {
+                chartManager.needsPieRedraw = true;
+            }
+        }
+        
         // Reload all data
         await this.loadTimeline();
         await this.loadTemplates();
         await this.loadProfilesList();
         
-        // Update profile name in settings if visible
+        // Update current tab content
         const currentTab = document.querySelector('.tab-btn.active')?.dataset.tab;
         if (currentTab === 'settings') {
             await this.loadSettings();
         } else if (currentTab === 'analytics') {
             await this.loadAnalytics();
+        }
+        
+        // Always refresh analytics if it has been initialized
+        if (this.analyticsFilters) {
+            await this.refreshAnalytics();
         }
     }
 

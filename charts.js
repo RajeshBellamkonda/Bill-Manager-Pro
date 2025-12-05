@@ -151,7 +151,10 @@ class ChartManager {
         canvas.style.height = height + 'px';
         ctx.scale(dpr, dpr);
 
-        // Clear canvas with theme-aware background
+        // Clear canvas completely to prevent artifacts
+        ctx.clearRect(0, 0, width, height);
+        
+        // Fill with theme-aware background
         const bgColor = getComputedStyle(document.body).getPropertyValue('--card-bg') || '#ffffff';
         ctx.fillStyle = bgColor;
         ctx.fillRect(0, 0, width, height);
@@ -314,7 +317,21 @@ class ChartManager {
 
         // Store reference for animation
         this.pieCanvas = canvas;
+        const newDataKey = `${labels.join(',')}|${data.join(',')}`;
+        const oldDataKey = this.pieDataKey;
+        this.pieDataKey = newDataKey;
         this.pieData = { data, labels, colors, total, canvasId };
+        
+        // Reset animation state if data changed (e.g., profile switch)
+        if (oldDataKey !== newDataKey) {
+            // Stop existing animation
+            if (this.pieAnimationFrame) {
+                cancelAnimationFrame(this.pieAnimationFrame);
+                this.pieAnimationFrame = null;
+            }
+            // Clear animation state
+            this.pieAnimationState = {};
+        }
         
         // Start animation loop if needed
         if (!this.pieAnimationFrame) {
@@ -327,13 +344,11 @@ class ChartManager {
         // Setup click handler with animation trigger
         canvas.style.cursor = 'pointer';
         
-        // Hover effect
+        // Hover effect (desktop only)
         canvas.onmousemove = (e) => {
             const rect = canvas.getBoundingClientRect();
-            const scaleX = canvas.width / rect.width;
-            const scaleY = canvas.height / rect.height;
-            const x = (e.clientX - rect.left) * scaleX;
-            const y = (e.clientY - rect.top) * scaleY;
+            const x = e.clientX - rect.left;
+            const y = e.clientY - rect.top;
             const dx = x - centerX;
             const dy = y - centerY;
             const distance = Math.sqrt(dx * dx + dy * dy);
@@ -341,13 +356,12 @@ class ChartManager {
             canvas.style.cursor = (distance >= innerRadius && distance <= outerRadius) ? 'pointer' : 'default';
         };
         
-        canvas.onclick = (e) => {
+        // Unified handler for click/touch
+        const handleSliceSelection = (clientX, clientY) => {
             const rect = canvas.getBoundingClientRect();
-            // Scale coordinates to canvas resolution
-            const scaleX = canvas.width / rect.width;
-            const scaleY = canvas.height / rect.height;
-            const x = (e.clientX - rect.left) * scaleX;
-            const y = (e.clientY - rect.top) * scaleY;
+            // Use logical coordinates (same as drawing)
+            const x = clientX - rect.left;
+            const y = clientY - rect.top;
 
             // Calculate distance from center
             const dx = x - centerX;
@@ -375,9 +389,24 @@ class ChartManager {
                         // Trigger animation and refresh
                         this.needsPieRedraw = true;
                         app.refreshAnalytics();
-                        break;
+                        return true;
                     }
                 }
+            }
+            return false;
+        };
+        
+        // Desktop click
+        canvas.onclick = (e) => {
+            handleSliceSelection(e.clientX, e.clientY);
+        };
+        
+        // Mobile touch
+        canvas.ontouchend = (e) => {
+            e.preventDefault();
+            if (e.changedTouches && e.changedTouches.length > 0) {
+                const touch = e.changedTouches[0];
+                handleSliceSelection(touch.clientX, touch.clientY);
             }
         };
     }
@@ -491,8 +520,13 @@ class ChartManager {
             }
         }
         
-        const amounts = Object.values(categories);
-        const labels = Object.keys(categories);
+        // Filter out negative and zero values (caused by credits exceeding expenses)
+        const filteredCategories = Object.entries(categories)
+            .filter(([_, amount]) => amount > 0)
+            .sort((a, b) => b[1] - a[1]); // Sort by amount descending
+        
+        const labels = filteredCategories.map(([cat, _]) => cat);
+        const amounts = filteredCategories.map(([_, amount]) => amount);
         
         this.createPieChart('categoryChart', amounts, labels);
     }
@@ -500,6 +534,21 @@ class ChartManager {
     async updateAllCharts(filters = {}) {
         await this.renderSpendingTrend(filters);
         await this.renderCategoryBreakdown(filters);
+    }
+
+    clearPieChartState() {
+        // Stop animation
+        if (this.pieAnimationFrame) {
+            cancelAnimationFrame(this.pieAnimationFrame);
+            this.pieAnimationFrame = null;
+        }
+        // Clear all state
+        this.pieAnimationState = {};
+        this.pieData = null;
+        this.pieDataKey = null;
+        this.pieSlices = [];
+        this.pieCanvas = null;
+        this.needsPieRedraw = false;
     }
 }
 

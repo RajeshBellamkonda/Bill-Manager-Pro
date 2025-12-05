@@ -6,8 +6,9 @@ class PWAHandler {
     }
 
     init() {
-        // Register service worker
-        if ('serviceWorker' in navigator) {
+        // Register service worker (only on HTTP/HTTPS, not file://)
+        if ('serviceWorker' in navigator && 
+            (window.location.protocol === 'http:' || window.location.protocol === 'https:')) {
             navigator.serviceWorker.register('/service-worker.js')
                 .then((registration) => {
                     console.log('Service Worker registered:', registration);
@@ -15,6 +16,8 @@ class PWAHandler {
                 .catch((error) => {
                     console.log('Service Worker registration failed:', error);
                 });
+        } else if (window.location.protocol === 'file:') {
+            console.log('Service Worker not available when using file:// protocol. Please use a web server (http://localhost).');
         }
 
         // Listen for install prompt

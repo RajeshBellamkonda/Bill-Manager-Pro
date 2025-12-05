@@ -3329,6 +3329,27 @@ body[data-theme="dark-purple"] .chart-container {
         display: block;
         overflow-x: auto;
         -webkit-overflow-scrolling: touch;
+        min-width: 100%;
+    }
+    
+    .report-table table {
+        width: 100%;
+        min-width: 100%;
+    }
+    
+    .report-table thead,
+    .report-table tbody,
+    .report-table tr {
+        display: table;
+        width: 100%;
+        table-layout: fixed;
+    }
+    
+    .report-table th,
+    .report-table td {
+        word-wrap: break-word;
+        overflow: hidden;
+        text-overflow: ellipsis;
     }
     
     /* Better empty state on mobile */
