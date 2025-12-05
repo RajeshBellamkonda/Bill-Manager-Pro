@@ -38,12 +38,30 @@ class NotificationManager {
         }
     }
 
-    showNotification(title, options = {}) {
+    async showNotification(title, options = {}) {
         // Always check current permission
         this.permission = Notification.permission;
         
-        if (this.permission === 'granted') {
-            try {
+        if (this.permission !== 'granted') {
+            console.warn('Cannot show notification. Permission:', this.permission);
+            return null;
+        }
+
+        try {
+            // Check if service worker is available (required for Android Chrome)
+            if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
+                const registration = await navigator.serviceWorker.ready;
+                await registration.showNotification(title, {
+                    icon: 'icon-192.png',
+                    badge: 'icon-72.png',
+                    vibrate: [200, 100, 200],
+                    requireInteraction: options.requireInteraction || false,
+                    ...options
+                });
+                console.log('Service Worker notification shown:', title);
+                return true;
+            } else {
+                // Fallback to regular Notification API for desktop
                 const notification = new Notification(title, {
                     icon: 'icon-192.png',
                     badge: 'icon-72.png',
@@ -55,14 +73,11 @@ class NotificationManager {
                     notification.close();
                 };
 
-                console.log('Notification shown:', title);
+                console.log('Regular notification shown:', title);
                 return notification;
-            } catch (error) {
-                console.error('Error showing notification:', error);
-                return null;
             }
-        } else {
-            console.warn('Cannot show notification. Permission:', this.permission);
+        } catch (error) {
+            console.error('Error showing notification:', error);
             return null;
         }
     }

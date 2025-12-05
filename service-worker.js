@@ -86,6 +86,14 @@ async function syncBills() {
   console.log('Syncing bills...');
 }
 
+// Handle messages from the app (for showing notifications)
+self.addEventListener('message', (event) => {
+  if (event.data && event.data.type === 'SHOW_NOTIFICATION') {
+    const { title, options } = event.data;
+    self.registration.showNotification(title, options);
+  }
+});
+
 // Handle push notifications
 self.addEventListener('push', (event) => {
   const data = event.data ? event.data.json() : {};
@@ -118,9 +126,19 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
 
-  if (event.action === 'view') {
-    event.waitUntil(
-      clients.openWindow('/')
-    );
-  }
+  event.waitUntil(
+    clients.matchAll({ type: 'window', includeUncontrolled: true }).then((clientList) => {
+      // Check if there's already a window open
+      for (let i = 0; i < clientList.length; i++) {
+        const client = clientList[i];
+        if (client.url.includes(self.location.origin) && 'focus' in client) {
+          return client.focus();
+        }
+      }
+      // If no window is open, open a new one
+      if (clients.openWindow) {
+        return clients.openWindow('/');
+      }
+    })
+  );
 });
