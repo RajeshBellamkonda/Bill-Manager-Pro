@@ -519,9 +519,14 @@ class BillDatabase {
     }
 
     // Analytics operations
-    async getMonthlySpending(year, month, status = 'paid') {
+    async getMonthlySpending(year, month, status = 'paid', billName = '') {
         const bills = await this.getBillsByMonth(year, month);
         return bills.reduce((total, bill) => {
+            // Apply bill name filter
+            if (billName && !bill.name.toLowerCase().includes(billName.toLowerCase())) {
+                return total;
+            }
+            
             const isCredit = bill.isCredit || false;
             const amount = isCredit ? -bill.amount : bill.amount;
             if (status === 'all') return total + amount;
@@ -531,11 +536,16 @@ class BillDatabase {
         }, 0);
     }
 
-    async getSpendingByCategory(year, month, status = 'paid') {
+    async getSpendingByCategory(year, month, status = 'paid', billName = '') {
         const bills = await this.getBillsByMonth(year, month);
         const categories = {};
 
         bills.forEach(bill => {
+            // Apply bill name filter
+            if (billName && !bill.name.toLowerCase().includes(billName.toLowerCase())) {
+                return;
+            }
+            
             let include = false;
             if (status === 'all') {
                 include = true;
@@ -556,13 +566,13 @@ class BillDatabase {
         return categories;
     }
 
-    async getSpendingTrend(months = 6, status = 'paid') {
+    async getSpendingTrend(months = 6, status = 'paid', billName = '') {
         const trend = [];
         const now = new Date();
 
         for (let i = months - 1; i >= 0; i--) {
             const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-            const spending = await this.getMonthlySpending(date.getFullYear(), date.getMonth(), status);
+            const spending = await this.getMonthlySpending(date.getFullYear(), date.getMonth(), status, billName);
             const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
             trend.push({
                 month: date.toLocaleDateString('en-US', { year: 'numeric', month: 'short' }),

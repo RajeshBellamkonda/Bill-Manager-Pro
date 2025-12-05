@@ -4,6 +4,8 @@ class BillManagerApp {
         this.currentMonth = new Date();
         this.editingBillId = null;
         this.currencySymbol = '£';
+        this.searchQuery = '';
+        this.allBills = [];
     }
 
     async init() {
@@ -239,6 +241,10 @@ class BillManagerApp {
         
         // Toggle balances section
         document.getElementById('toggleBalancesBtn').addEventListener('click', () => this.toggleBalances());
+        
+        // Bill search
+        document.getElementById('billSearchInput').addEventListener('input', (e) => this.searchBills(e.target.value));
+        document.getElementById('clearSearchBtn').addEventListener('click', () => this.clearSearch());
     }
 
     toggleCategoryList() {
@@ -294,7 +300,10 @@ class BillManagerApp {
         document.getElementById('monthlyCredit').value = savedCredit || '';
 
         // Get bills for this month
-        const bills = await database.getBillsByMonth(year, month);
+        this.allBills = await database.getBillsByMonth(year, month);
+        
+        // Apply search filter if active
+        const bills = this.searchQuery ? this.filterBills(this.allBills, this.searchQuery) : this.allBills;
         
         // Calculate unpaid total (expenses minus credits)
         const unpaidBillsList = bills.filter(bill => !bill.isPaid);
@@ -963,6 +972,7 @@ class BillManagerApp {
                 timeRange: 'current',
                 category: 'all',
                 status: 'all',
+                billName: '',
                 selectedMonth: null
             };
         }
@@ -1004,18 +1014,21 @@ class BillManagerApp {
         const timeRangeSelect = document.getElementById('analyticsTimeRange');
         const categoryFilter = document.getElementById('analyticsCategoryFilter');
         const statusFilter = document.getElementById('analyticsStatusFilter');
+        const billNameFilter = document.getElementById('analyticsBillNameFilter');
         const resetBtn = document.getElementById('analyticsResetBtn');
 
         // Remove old listeners if any
         timeRangeSelect.replaceWith(timeRangeSelect.cloneNode(true));
         categoryFilter.replaceWith(categoryFilter.cloneNode(true));
         statusFilter.replaceWith(statusFilter.cloneNode(true));
+        billNameFilter.replaceWith(billNameFilter.cloneNode(true));
         resetBtn.replaceWith(resetBtn.cloneNode(true));
 
         // Get fresh references
         const timeRange = document.getElementById('analyticsTimeRange');
         const category = document.getElementById('analyticsCategoryFilter');
         const status = document.getElementById('analyticsStatusFilter');
+        const billName = document.getElementById('analyticsBillNameFilter');
         const reset = document.getElementById('analyticsResetBtn');
 
         timeRange.addEventListener('change', async (e) => {
@@ -1039,16 +1052,23 @@ class BillManagerApp {
             await this.refreshAnalytics();
         });
 
+        billName.addEventListener('input', async (e) => {
+            this.analyticsFilters.billName = e.target.value.trim();
+            await this.refreshAnalytics();
+        });
+
         reset.addEventListener('click', async () => {
             this.analyticsFilters = {
                 timeRange: 'current',
                 category: 'all',
                 status: 'all',
+                billName: '',
                 selectedMonth: null
             };
             timeRange.value = 'current';
             category.value = 'all';
             status.value = 'all';
+            billName.value = '';
             await this.refreshAnalytics();
         });
     }
@@ -1104,6 +1124,10 @@ class BillManagerApp {
         if (this.analyticsFilters.status !== 'all') {
             const statusLabel = this.analyticsFilters.status === 'paid' ? '✅ Paid Only' : '⏳ Unpaid Only';
             filters.push(statusLabel);
+        }
+
+        if (this.analyticsFilters.billName) {
+            filters.push(`🔍 "${this.analyticsFilters.billName}"`);
         }
 
         if (filters.length > 0) {
@@ -2160,6 +2184,142 @@ class BillManagerApp {
         });
         
         document.body.appendChild(popup);
+    }
+
+    // Bill Search Methods
+    filterBills(bills, query) {
+        const searchTerm = query.toLowerCase().trim();
+        if (!searchTerm) return bills;
+
+        return bills.filter(bill => {
+            // Search in bill name
+            if (bill.name.toLowerCase().includes(searchTerm)) return true;
+            
+            // Search in category
+            if (bill.category && bill.category.toLowerCase().includes(searchTerm)) return true;
+            
+            // Search in amount (convert to string)
+            const amount = typeof bill.amount === 'number' ? bill.amount : parseFloat(bill.amount) || 0;
+            if (amount.toString().includes(searchTerm)) return true;
+            
+            // Search in notes
+            if (bill.notes && bill.notes.toLowerCase().includes(searchTerm)) return true;
+            
+            return false;
+        });
+    }
+
+    searchBills(query) {
+        this.searchQuery = query.trim();
+        
+        // Show/hide clear button
+        const clearBtn = document.getElementById('clearSearchBtn');
+        clearBtn.style.display = this.searchQuery ? 'flex' : 'none';
+        
+        // Rerender the timeline with filtered bills
+        this.renderFilteredTimeline();
+    }
+
+    clearSearch() {
+        this.searchQuery = '';
+        document.getElementById('billSearchInput').value = '';
+        document.getElementById('clearSearchBtn').style.display = 'none';
+        
+        // Rerender the timeline with all bills
+        this.renderFilteredTimeline();
+    }
+
+    async renderFilteredTimeline() {
+        const year = this.currentMonth.getFullYear();
+        const month = this.currentMonth.getMonth();
+        
+        // Apply search filter
+        const bills = this.searchQuery ? this.filterBills(this.allBills, this.searchQuery) : this.allBills;
+        
+        // Recalculate unpaid total
+        const unpaidBillsList = bills.filter(bill => !bill.isPaid);
+        const unpaidTotal = unpaidBillsList.reduce((sum, bill) => {
+            const amount = typeof bill.amount === 'number' ? bill.amount : parseFloat(bill.amount) || 0;
+            const isCredit = bill.isCredit || false;
+            return sum + (isCredit ? -amount : amount);
+        }, 0);
+        
+        // Update unpaid total display
+        const unpaidTotalEl = document.getElementById('unpaidTotal');
+        if (unpaidBillsList.length > 0) {
+            unpaidTotalEl.textContent = `Unpaid: ${this.currencySymbol}${unpaidTotal.toFixed(2)}`;
+            unpaidTotalEl.style.display = 'block';
+        } else {
+            unpaidTotalEl.style.display = 'none';
+        }
+        
+        // Get saved credit
+        const profileId = database.getCurrentProfile();
+        const creditKey = `monthlyCredit_${profileId}_${year}_${month}`;
+        const savedCredit = await database.getSetting(creditKey);
+        const credit = parseFloat(savedCredit) || 0;
+        
+        // Render bills
+        const timeline = document.getElementById('billsTimeline');
+        
+        if (bills.length === 0) {
+            const message = this.searchQuery ? 
+                `<div class="empty-state">
+                    <h3>No bills found</h3>
+                    <p>No bills match your search "${this.searchQuery}"</p>
+                </div>` :
+                `<div class="empty-state">
+                    <h3>No bills for this month</h3>
+                    <p>Add a bill or apply a template to get started</p>
+                </div>`;
+            timeline.innerHTML = message;
+            return;
+        }
+
+        // Separate paid and unpaid bills
+        const paidBills = bills.filter(b => b.isPaid).sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+        const unpaidBills = bills.filter(b => !b.isPaid).sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+        
+        // Calculate paid bills total
+        const paidTotal = paidBills.reduce((sum, bill) => {
+            const amount = typeof bill.amount === 'number' ? bill.amount : parseFloat(bill.amount) || 0;
+            const isCredit = bill.isCredit || false;
+            return sum + (isCredit ? -amount : amount);
+        }, 0);
+
+        let remainingCredit = credit;
+        let html = '';
+        
+        // Add collapsed paid bills section first
+        if (paidBills.length > 0) {
+            const totalLabel = paidTotal >= 0 ? `${this.currencySymbol}${paidTotal.toFixed(2)}` : `-${this.currencySymbol}${Math.abs(paidTotal).toFixed(2)}`;
+            html += `
+                <div class="paid-bills-section">
+                    <div class="paid-bills-header" onclick="app.togglePaidBills()">
+                        <div class="paid-bills-summary">
+                            <span class="paid-bills-icon">✅</span>
+                            <span class="paid-bills-title">Paid Bills (${paidBills.length})</span>
+                            <span class="paid-bills-total">${totalLabel}</span>
+                        </div>
+                        <span class="paid-bills-toggle" id="paidBillsToggle">▼</span>
+                    </div>
+                    <div class="paid-bills-content collapsed" id="paidBillsContent">
+                        ${paidBills.map(bill => this.createBillCard(bill, 0)).join('')}
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Add unpaid bills after
+        unpaidBills.forEach(bill => {
+            html += this.createBillCard(bill, remainingCredit);
+            const billAmount = typeof bill.amount === 'number' ? bill.amount : parseFloat(bill.amount) || 0;
+            const isCredit = bill.isCredit || false;
+            // Credits add to remaining credit, expenses subtract from it
+            remainingCredit = isCredit ? remainingCredit + billAmount : Math.max(0, remainingCredit - billAmount);
+        });
+        
+        timeline.innerHTML = html;
     }
 }
 

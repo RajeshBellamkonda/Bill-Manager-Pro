@@ -70,6 +70,10 @@
                         <h2 id="currentMonth"></h2>
                         <button id="nextMonth" class="nav-btn nav-btn-compact">→</button>
                     </div>
+                    <div class="search-container">
+                        <input type="text" id="billSearchInput" class="search-input" placeholder="🔍 Search bills...">
+                        <button id="clearSearchBtn" class="clear-search-btn" style="display: none;">✕</button>
+                    </div>
                     <button id="toggleBalancesBtn" class="toggle-balances-btn">
                         <span id="balancesToggleText">Show Balances</span>
                         <span class="toggle-arrow">▼</span>
@@ -222,6 +226,10 @@
                             <option value="paid">Paid Only</option>
                             <option value="unpaid">Unpaid Only</option>
                         </select>
+                    </div>
+                    <div class="filter-group filter-group-search">
+                        <label for="analyticsBillNameFilter">Bill Name:</label>
+                        <input type="text" id="analyticsBillNameFilter" class="filter-input" placeholder="Search by name...">
                     </div>
                     <button id="analyticsResetBtn" class="btn btn-secondary btn-small">Reset Filters</button>
                 </div>

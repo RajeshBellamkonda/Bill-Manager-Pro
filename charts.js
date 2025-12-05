@@ -256,6 +256,7 @@ class ChartManager {
         const timeRange = filters.timeRange || 'current';
         const category = filters.category || 'all';
         const status = filters.status || 'all';
+        const billName = filters.billName || '';
         
         // Determine how many months to fetch
         let monthsToFetch;
@@ -267,14 +268,14 @@ class ChartManager {
             monthsToFetch = parseInt(timeRange);
         }
         
-        let trendData = await database.getSpendingTrend(monthsToFetch, status);
+        let trendData = await database.getSpendingTrend(monthsToFetch, status, billName);
         
         // Apply category filter if needed
         if (category !== 'all') {
             const filteredData = [];
             for (const dataPoint of trendData) {
                 const [year, month] = dataPoint.monthKey.split('-');
-                const categorySpending = await database.getSpendingByCategory(parseInt(year), parseInt(month) - 1, status);
+                const categorySpending = await database.getSpendingByCategory(parseInt(year), parseInt(month) - 1, status, billName);
                 const amount = categorySpending[category] || 0;
                 filteredData.push({
                     month: dataPoint.month,
@@ -295,11 +296,12 @@ class ChartManager {
     async renderCategoryBreakdown(filters = {}) {
         let categories = {};
         const status = filters.status || 'all';
+        const billName = filters.billName || '';
         
         if (filters.selectedMonth) {
             // Show categories for specific month
             const [year, month] = filters.selectedMonth.split('-');
-            categories = await database.getSpendingByCategory(parseInt(year), parseInt(month) - 1, status);
+            categories = await database.getSpendingByCategory(parseInt(year), parseInt(month) - 1, status, billName);
         } else {
             // Aggregate across time range
             const timeRange = filters.timeRange || 'current';
@@ -317,7 +319,7 @@ class ChartManager {
             
             for (let i = 0; i < monthsToIterate; i++) {
                 const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-                const monthCategories = await database.getSpendingByCategory(date.getFullYear(), date.getMonth(), status);
+                const monthCategories = await database.getSpendingByCategory(date.getFullYear(), date.getMonth(), status, billName);
                 
                 for (const [cat, amount] of Object.entries(monthCategories)) {
                     categories[cat] = (categories[cat] || 0) + amount;

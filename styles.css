@@ -14,7 +14,6 @@
 }
 
 * {
-    margin: 0;
     padding: 0;
     box-sizing: border-box;
 }
@@ -793,6 +792,77 @@ header h1 {
 .nav-btn:hover {
     background: #1976D2;
     transform: translateY(-2px);
+}
+
+/* Search Container */
+.search-container {
+    position: relative;
+    display: flex;
+    justify-content: center;
+    width: 100%;
+    max-width: 350px;
+    margin: 15px auto 0;
+}
+
+.search-input {
+    width: 100%;
+    padding: 8px 35px 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+    font-size: 0.9rem;
+    outline: none;
+    transition: all 0.3s ease;
+    background: white;
+}
+
+.search-input:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(76, 175, 80, 0.1);
+}
+
+.search-input::placeholder {
+    color: #999;
+    font-size: 0.85rem;
+}
+
+.clear-search-btn {
+    position: absolute;
+    right: 8px;
+    top: 50%;
+    transform: translateY(-50%);
+    background: var(--text-secondary);
+    color: white;
+    border: none;
+    border-radius: 50%;
+    width: 20px;
+    height: 20px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 12px;
+    transition: all 0.2s ease;
+}
+
+.clear-search-btn:hover {
+    background: var(--text-primary);
+    transform: translateY(-50%) scale(1.1);
+}
+
+@media (max-width: 768px) {
+    .search-container {
+        max-width: 100%;
+        margin: 10px 0 0;
+    }
+    
+    .search-input {
+        padding: 7px 32px 7px 10px;
+        font-size: 0.85rem;
+    }
+    
+    .search-input::placeholder {
+        font-size: 0.8rem;
+    }
 }
 
 .bills-timeline {
@@ -1809,6 +1879,37 @@ header h1 {
     outline: none;
     border-color: var(--primary-color);
     box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+}
+
+.filter-input {
+    padding: 8px 12px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--bg-color);
+    color: var(--text-primary);
+    font-size: 0.9rem;
+    transition: all 0.2s ease;
+    min-width: 180px;
+}
+
+.filter-input:hover {
+    border-color: var(--primary-color);
+}
+
+.filter-input:focus {
+    outline: none;
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(76, 175, 80, 0.1);
+}
+
+.filter-input::placeholder {
+    color: #999;
+    font-size: 0.85rem;
+}
+
+.filter-group-search {
+    flex: 1;
+    min-width: 200px;
 }
 
 .chart-header {
