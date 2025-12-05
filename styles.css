@@ -2068,10 +2068,11 @@ header h1 {
 }
 
 .chart-container {
-    background: var(--bg-color);
+    background: var(--card-bg);
     padding: 25px;
     border-radius: 12px;
     margin-bottom: 25px;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
 }
 
 @media (max-width: 768px) {
@@ -2093,7 +2094,8 @@ header h1 {
 }
 
 #categoryChart {
-    max-height: 500px !important;
+    max-height: 550px !important;
+    width: 100% !important;
 }
 
 .chart-legend {

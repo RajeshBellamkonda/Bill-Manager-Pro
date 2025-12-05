@@ -101,20 +101,65 @@ class ChartManager {
         };
     }
 
+    animatePieChart() {
+        if (!this.pieCanvas || !this.pieData) {
+            this.pieAnimationFrame = null;
+            return;
+        }
+
+        // Check if any slice is still animating
+        let needsAnimation = false;
+        if (this.pieAnimationState) {
+            for (const key in this.pieAnimationState) {
+                const state = this.pieAnimationState[key];
+                const isSelected = app.analyticsFilters && app.analyticsFilters.category === key;
+                const targetOffset = isSelected ? 15 : 0;
+                const targetScale = isSelected ? 1.05 : 1;
+                
+                // Check if values are still changing (not settled)
+                if (Math.abs(state.offset - targetOffset) > 0.1 || Math.abs(state.scale - targetScale) > 0.001) {
+                    needsAnimation = true;
+                    break;
+                }
+            }
+        }
+
+        // Redraw if animation is needed or forced
+        if (needsAnimation || this.needsPieRedraw) {
+            this.needsPieRedraw = false;
+            const { canvasId, data, labels } = this.pieData;
+            this.createPieChart(canvasId, data, labels);
+        }
+
+        // Continue animation loop
+        this.pieAnimationFrame = requestAnimationFrame(() => this.animatePieChart());
+    }
+
     createPieChart(canvasId, data, labels) {
         const canvas = document.getElementById(canvasId);
         if (!canvas) return;
 
         const ctx = canvas.getContext('2d');
-        const width = canvas.width = canvas.offsetWidth;
-        const height = canvas.height = 400;
+        const dpr = window.devicePixelRatio || 1;
+        const width = canvas.offsetWidth;
+        const height = 550;
+        
+        // Set canvas size with device pixel ratio for crisp rendering
+        canvas.width = width * dpr;
+        canvas.height = height * dpr;
+        canvas.style.width = width + 'px';
+        canvas.style.height = height + 'px';
+        ctx.scale(dpr, dpr);
 
-        // Clear canvas
-        ctx.clearRect(0, 0, width, height);
+        // Clear canvas with theme-aware background
+        const bgColor = getComputedStyle(document.body).getPropertyValue('--card-bg') || '#ffffff';
+        ctx.fillStyle = bgColor;
+        ctx.fillRect(0, 0, width, height);
 
         if (data.length === 0) {
-            ctx.font = '16px Arial';
-            ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--text-secondary') || '#666';
+            ctx.font = '16px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
+            const textSecondary = getComputedStyle(document.body).getPropertyValue('--text-secondary') || '#666';
+            ctx.fillStyle = textSecondary;
             ctx.textAlign = 'center';
             ctx.fillText('No data available', width / 2, height / 2);
             return;
@@ -123,21 +168,42 @@ class ChartManager {
         const total = data.reduce((sum, val) => sum + val, 0);
         const centerX = width / 2;
         const centerY = height / 2;
-        const radius = Math.min(width, height) / 2.5;
+        const outerRadius = Math.min(width, height) / 2.8;
+        const innerRadius = outerRadius * 0.5; // Donut chart for better clarity
 
+        // Vibrant, distinct color palette
         const colors = [
-            '#4CAF50', '#2196F3', '#FFC107', '#FF5722', 
-            '#9C27B0', '#00BCD4', '#FF9800', '#E91E63'
+            '#FF6384', '#36A2EB', '#FFCE56', '#4BC0C0',
+            '#9966FF', '#FF9F40', '#FF6384', '#C9CBCF',
+            '#4CAF50', '#2196F3', '#FF9800', '#E91E63'
         ];
 
         let currentAngle = -Math.PI / 2;
         this.pieSlices = [];
 
+        // Enable high-quality rendering
+        ctx.imageSmoothingEnabled = true;
+        ctx.imageSmoothingQuality = 'high';
+        ctx.lineJoin = 'round';
+
+        // Initialize animation state if not exists
+        if (!this.pieAnimationState) {
+            this.pieAnimationState = {};
+        }
+
+        // Draw slices
         data.forEach((value, index) => {
             const sliceAngle = (value / total) * 2 * Math.PI;
+            const percentage = (value / total) * 100;
 
-            // Check if this category is selected
+            // Skip very small slices (less than 1%)
+            if (percentage < 1) {
+                currentAngle += sliceAngle;
+                return;
+            }
+
             const isSelected = app.analyticsFilters && app.analyticsFilters.category === labels[index];
+            const targetOffset = isSelected ? 15 : 0;
 
             // Store slice for click detection
             this.pieSlices.push({
@@ -146,59 +212,155 @@ class ChartManager {
                 category: labels[index]
             });
 
-            // Draw slice
-            ctx.beginPath();
-            ctx.fillStyle = colors[index % colors.length];
-            ctx.moveTo(centerX, centerY);
-            ctx.arc(centerX, centerY, radius, currentAngle, currentAngle + sliceAngle);
-            ctx.closePath();
-            ctx.fill();
-
-            // Highlight selected slice
-            if (isSelected) {
-                ctx.beginPath();
-                ctx.strokeStyle = '#fff';
-                ctx.lineWidth = 4;
-                ctx.moveTo(centerX, centerY);
-                ctx.arc(centerX, centerY, radius, currentAngle, currentAngle + sliceAngle);
-                ctx.closePath();
-                ctx.stroke();
+            // Initialize or update animation state
+            const sliceKey = labels[index];
+            if (!this.pieAnimationState[sliceKey]) {
+                this.pieAnimationState[sliceKey] = {
+                    offset: 0,
+                    scale: 1
+                };
             }
 
-            // Draw label
-            const labelAngle = currentAngle + sliceAngle / 2;
-            const labelX = centerX + Math.cos(labelAngle) * (radius + 40);
-            const labelY = centerY + Math.sin(labelAngle) * (radius + 40);
+            const state = this.pieAnimationState[sliceKey];
+            
+            // Smooth animation using easing
+            const easeFactor = 0.15;
+            state.offset += (targetOffset - state.offset) * easeFactor;
+            const targetScale = isSelected ? 1.05 : 1;
+            state.scale += (targetScale - state.scale) * easeFactor;
 
-            ctx.font = '12px Arial';
-            ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--text-primary') || '#333';
+            const midAngle = currentAngle + sliceAngle / 2;
+            const offsetX = Math.cos(midAngle) * state.offset;
+            const offsetY = Math.sin(midAngle) * state.offset;
+
+            // Draw shadow with enhanced effect for selected
+            ctx.save();
+            ctx.shadowColor = isSelected ? 'rgba(0, 0, 0, 0.25)' : 'rgba(0, 0, 0, 0.15)';
+            ctx.shadowBlur = isSelected ? 15 : 10;
+            ctx.shadowOffsetX = isSelected ? 4 : 3;
+            ctx.shadowOffsetY = isSelected ? 4 : 3;
+
+            // Draw donut slice
+            ctx.beginPath();
+            ctx.fillStyle = colors[index % colors.length];
+            ctx.arc(centerX + offsetX, centerY + offsetY, outerRadius, currentAngle, currentAngle + sliceAngle);
+            ctx.arc(centerX + offsetX, centerY + offsetY, innerRadius, currentAngle + sliceAngle, currentAngle, true);
+            ctx.closePath();
+            ctx.fill();
+            ctx.restore();
+
+            // Draw border for separation (theme-aware)
+            ctx.save();
+            const borderColor = getComputedStyle(document.body).getPropertyValue('--card-bg') || '#ffffff';
+            ctx.strokeStyle = borderColor;
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.arc(centerX + offsetX, centerY + offsetY, outerRadius, currentAngle, currentAngle + sliceAngle);
+            ctx.arc(centerX + offsetX, centerY + offsetY, innerRadius, currentAngle + sliceAngle, currentAngle, true);
+            ctx.closePath();
+            ctx.stroke();
+            ctx.restore();
+
+            // Draw percentage labels on slices (only for slices > 5%)
+            if (percentage > 5) {
+                const labelRadius = (outerRadius + innerRadius) / 2;
+                const labelX = centerX + Math.cos(midAngle) * labelRadius + offsetX;
+                const labelY = centerY + Math.sin(midAngle) * labelRadius + offsetY;
+
+                ctx.save();
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 14px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                
+                // Draw text with stroke for better visibility
+                ctx.strokeStyle = 'rgba(0, 0, 0, 0.5)';
+                ctx.lineWidth = 3;
+                ctx.strokeText(`${percentage.toFixed(1)}%`, labelX, labelY);
+                ctx.fillText(`${percentage.toFixed(1)}%`, labelX, labelY);
+                ctx.restore();
+            }
+
+            // Draw connector lines and labels outside
+            const lineStartRadius = outerRadius + 5;
+            const lineEndRadius = outerRadius + 30;
+            const labelRadius = outerRadius + 35;
+            
+            const lineStartX = centerX + Math.cos(midAngle) * lineStartRadius;
+            const lineStartY = centerY + Math.sin(midAngle) * lineStartRadius;
+            const lineEndX = centerX + Math.cos(midAngle) * lineEndRadius;
+            const lineEndY = centerY + Math.sin(midAngle) * lineEndRadius;
+            const labelX = centerX + Math.cos(midAngle) * labelRadius;
+            const labelY = centerY + Math.sin(midAngle) * labelRadius;
+
+            // Draw line
+            ctx.strokeStyle = colors[index % colors.length];
+            ctx.lineWidth = 2;
+            ctx.beginPath();
+            ctx.moveTo(lineStartX, lineStartY);
+            ctx.lineTo(lineEndX, lineEndY);
+            ctx.stroke();
+
+            // Draw label (theme-aware)
+            ctx.font = 'bold 12px -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif';
+            const textColor = getComputedStyle(document.body).getPropertyValue('--text-primary') || '#333';
+            ctx.fillStyle = textColor;
             ctx.textAlign = labelX > centerX ? 'left' : 'right';
-            ctx.fillText(`${labels[index]}`, labelX, labelY);
-            ctx.font = '10px Arial';
-            ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--text-secondary') || '#666';
-            ctx.fillText(`${app.currencySymbol}${value.toFixed(2)} (${((value/total)*100).toFixed(1)}%)`, labelX, labelY + 15);
+            ctx.textBaseline = 'middle';
+            ctx.fillText(labels[index], labelX, labelY);
 
             currentAngle += sliceAngle;
         });
 
+        // Store reference for animation
+        this.pieCanvas = canvas;
+        this.pieData = { data, labels, colors, total, canvasId };
+        
+        // Start animation loop if needed
+        if (!this.pieAnimationFrame) {
+            this.animatePieChart();
+        }
+
         // Create legend
         this.createLegend(data, labels, colors, total);
 
-        // Setup click handler
+        // Setup click handler with animation trigger
         canvas.style.cursor = 'pointer';
+        
+        // Hover effect
+        canvas.onmousemove = (e) => {
+            const rect = canvas.getBoundingClientRect();
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const x = (e.clientX - rect.left) * scaleX;
+            const y = (e.clientY - rect.top) * scaleY;
+            const dx = x - centerX;
+            const dy = y - centerY;
+            const distance = Math.sqrt(dx * dx + dy * dy);
+            
+            canvas.style.cursor = (distance >= innerRadius && distance <= outerRadius) ? 'pointer' : 'default';
+        };
+        
         canvas.onclick = (e) => {
             const rect = canvas.getBoundingClientRect();
-            const x = e.clientX - rect.left;
-            const y = e.clientY - rect.top;
+            // Scale coordinates to canvas resolution
+            const scaleX = canvas.width / rect.width;
+            const scaleY = canvas.height / rect.height;
+            const x = (e.clientX - rect.left) * scaleX;
+            const y = (e.clientY - rect.top) * scaleY;
 
-            // Calculate angle from center
+            // Calculate distance from center
             const dx = x - centerX;
             const dy = y - centerY;
             const distance = Math.sqrt(dx * dx + dy * dy);
 
-            if (distance <= radius) {
+            // Check if click is within the donut ring
+            if (distance >= innerRadius && distance <= outerRadius) {
                 let angle = Math.atan2(dy, dx);
-                if (angle < -Math.PI / 2) angle += 2 * Math.PI;
+                // Normalize angle to match the drawing range
+                if (angle < -Math.PI / 2) {
+                    angle += 2 * Math.PI;
+                }
 
                 for (const slice of this.pieSlices) {
                     if (angle >= slice.startAngle && angle <= slice.endAngle) {
@@ -210,6 +372,8 @@ class ChartManager {
                             app.analyticsFilters.category = slice.category;
                             document.getElementById('analyticsCategoryFilter').value = slice.category;
                         }
+                        // Trigger animation and refresh
+                        this.needsPieRedraw = true;
                         app.refreshAnalytics();
                         break;
                     }
