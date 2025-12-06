@@ -52,10 +52,12 @@ class NotificationManager {
             if ('serviceWorker' in navigator && navigator.serviceWorker.controller) {
                 const registration = await navigator.serviceWorker.ready;
                 await registration.showNotification(title, {
-                    icon: 'icon-192.png',
-                    badge: 'icon-72.png',
+                    icon: 'fav-icon.png',
+                    badge: 'fav-icon.png',
                     vibrate: [200, 100, 200],
                     requireInteraction: options.requireInteraction || false,
+                    priority: 'high',
+                    urgency: 'high',
                     ...options
                 });
                 console.log('Service Worker notification shown:', title);
@@ -63,8 +65,10 @@ class NotificationManager {
             } else {
                 // Fallback to regular Notification API for desktop
                 const notification = new Notification(title, {
-                    icon: 'icon-192.png',
-                    badge: 'icon-72.png',
+                    icon: 'fav-icon.png',
+                    badge: 'fav-icon.png',
+                    priority: 'high',
+                    urgency: 'high',
                     ...options
                 });
 

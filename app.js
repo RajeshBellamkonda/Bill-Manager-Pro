@@ -105,6 +105,7 @@ class BillManagerApp {
         await this.loadTimeline();
         await this.loadTemplates();
         await this.loadProfilesList();
+        await this.loadProfileSelector();
         
         // Update current tab content
         const currentTab = document.querySelector('.tab-btn.active')?.dataset.tab;
@@ -955,7 +956,10 @@ class BillManagerApp {
                         <div class="template-name">${template.name}</div>
                         <div class="template-bills">${template.bills.length} bills</div>
                     </div>
-                    <button class="btn btn-danger btn-small" onclick="app.deleteTemplate(${template.id})">Delete</button>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn btn-secondary btn-small" onclick="app.editTemplate(${template.id})">Edit</button>
+                        <button class="btn btn-danger btn-small" onclick="app.deleteTemplate(${template.id})">Delete</button>
+                    </div>
                 </div>
                 <div class="template-bills">
                     ${template.bills.map(b => `<div>• ${b.name} - ${this.currencySymbol}${b.amount.toFixed(2)}</div>`).join('')}
@@ -991,6 +995,34 @@ class BillManagerApp {
         } catch (error) {
             console.error('Error deleting template:', error);
             alert('Error deleting template. Please try again.');
+        }
+    }
+
+    async editTemplate(id) {
+        try {
+            const template = await database.getTemplate(id);
+            if (!template) {
+                alert('Template not found');
+                return;
+            }
+
+            // Prompt for new template name
+            const newName = prompt('Edit template name:', template.name);
+            if (!newName || newName.trim() === '') {
+                return; // User cancelled or entered empty name
+            }
+
+            // Update the template name
+            template.name = newName.trim();
+            
+            // Save the updated template
+            await database.updateTemplate(id, template);
+            await this.loadTemplates();
+            
+            alert('Template updated successfully!');
+        } catch (error) {
+            console.error('Error editing template:', error);
+            alert('Error editing template. Please try again.');
         }
     }
 
@@ -2159,9 +2191,6 @@ class BillManagerApp {
                 return;
             }
             
-            // Save theme preference before deleting database
-            const savedTheme = await database.getSetting('theme');
-            
             // Close the database connection
             if (database.db) {
                 database.db.close();
@@ -2238,19 +2267,13 @@ class BillManagerApp {
             if (importData.settings) {
                 for (const setting of importData.settings) {
                     // Skip currentProfileId, we'll set it to the first imported profile
-                    // Skip theme, we'll restore the saved one
-                    if (setting.key === 'currentProfileId' || setting.key === 'theme') {
+                    if (setting.key === 'currentProfileId') {
                         continue;
                     }
                     
-                    // Import all settings as-is (including monthly credits)
+                    // Import all settings as-is (including monthly credits and theme)
                     await database.saveSetting(setting.key, setting.value);
                 }
-            }
-            
-            // Restore theme preference
-            if (savedTheme) {
-                await database.saveSetting('theme', savedTheme);
             }
             
             // Set current profile to the first imported profile

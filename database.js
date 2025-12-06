@@ -285,6 +285,19 @@ class BillDatabase {
         });
     }
 
+    async updateTemplate(id, template) {
+        const transaction = this.db.transaction(['templates'], 'readwrite');
+        const store = transaction.objectStore('templates');
+
+        return new Promise((resolve, reject) => {
+            // Ensure the template has the correct id
+            template.id = id;
+            const request = store.put(template);
+            request.onsuccess = () => resolve();
+            request.onerror = () => reject(request.error);
+        });
+    }
+
     async applyTemplateToMonth(templateId, year, month) {
         const template = await this.getTemplateById(templateId);
         if (!template) return;
