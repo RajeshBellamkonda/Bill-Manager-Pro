@@ -303,6 +303,13 @@ class BillManagerApp {
             this.loadTimeline();
         } else if (tabName === 'add-bill') {
             this.loadCategoryDropdown();
+            // Clear form and set defaults only if not editing an existing bill
+            if (!this.editingBillId) {
+                document.getElementById('billForm').reset();
+                document.getElementById('formTitle').textContent = 'Add New Bill';
+                const today = new Date().toISOString().split('T')[0];
+                document.getElementById('billDate').value = today;
+            }
         } else if (tabName === 'templates') {
             this.loadTemplates();
         } else if (tabName === 'analytics') {
@@ -706,7 +713,37 @@ class BillManagerApp {
 
     async markAsPaid(id) {
         try {
+            // Get bill details
+            const bill = await database.getBill(id);
+            if (!bill) return;
+            
+            // Mark as paid first
             await database.markBillAsPaid(id, true);
+            
+            // Get current credit
+            const year = this.currentMonth.getFullYear();
+            const month = this.currentMonth.getMonth();
+            const profileId = database.getCurrentProfile();
+            const creditKey = `monthlyCredit_${profileId}_${year}_${month}`;
+            const currentCredit = parseFloat(await database.getSetting(creditKey)) || 0;
+            
+            // If there's credit available, prompt to deduct
+            if (currentCredit > 0 && !bill.isCredit) {
+                const deductAmount = Math.min(currentCredit, bill.amount);
+                const shouldDeduct = confirm(
+                    `Deduct ${this.currencySymbol}${deductAmount.toFixed(2)} from your credit?\n\n` +
+                    `Current Credit: ${this.currencySymbol}${currentCredit.toFixed(2)}\n` +
+                    `Bill Amount: ${this.currencySymbol}${bill.amount.toFixed(2)}\n` +
+                    `Remaining Credit: ${this.currencySymbol}${(currentCredit - deductAmount).toFixed(2)}`
+                );
+                
+                if (shouldDeduct) {
+                    const newCredit = currentCredit - deductAmount;
+                    await database.saveSetting(creditKey, newCredit);
+                    document.getElementById('monthlyCredit').value = newCredit.toFixed(2);
+                }
+            }
+            
             await this.loadTimeline();
         } catch (error) {
             console.error('Error marking bill as paid:', error);
