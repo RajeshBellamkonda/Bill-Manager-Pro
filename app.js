@@ -31,6 +31,10 @@ class BillManagerApp {
             notificationManager.startPeriodicCheck();
             notificationManager.scheduleRecurringNotifications();
         }
+        
+        // Setup automatic daily backup
+        await this.checkAndPerformDailyBackup();
+        this.startDailyBackupSchedule();
     }
 
     async initProfiles() {
@@ -249,6 +253,8 @@ class BillManagerApp {
             document.getElementById('importFileInput').click();
         });
         document.getElementById('importFileInput').addEventListener('change', (e) => this.importData(e));
+        document.getElementById('selectBackupFolderBtn').addEventListener('click', () => this.selectBackupFolder());
+        document.getElementById('manualBackupBtn').addEventListener('click', () => this.manualBackup());
         
         // Quick add category in bill form
         document.getElementById('addNewCategoryBtn').addEventListener('click', () => this.showNewCategoryInput());
@@ -1432,6 +1438,13 @@ class BillManagerApp {
         document.getElementById('notificationsEnabled').checked = notificationsEnabled || false;
         this.updateNotificationStatus();
 
+        // Load auto backup setting
+        const autoBackupEnabled = await database.getSetting('autoBackupEnabled');
+        document.getElementById('autoBackupEnabled').checked = autoBackupEnabled || false;
+        
+        // Update backup folder display
+        this.updateBackupFolderDisplay();
+
         // Load current profile name
         const currentProfileId = database.getCurrentProfile();
         const profile = await database.getProfileById(currentProfileId);
@@ -1808,9 +1821,11 @@ class BillManagerApp {
     async saveSettings() {
         const currency = document.getElementById('currencySymbol').value;
         const notificationsEnabled = document.getElementById('notificationsEnabled').checked;
+        const autoBackupEnabled = document.getElementById('autoBackupEnabled').checked;
 
         await database.saveSetting('currency', currency);
         await database.saveSetting('notificationsEnabled', notificationsEnabled);
+        await database.saveSetting('autoBackupEnabled', autoBackupEnabled);
 
         this.currencySymbol = currency;
 
@@ -1829,11 +1844,13 @@ class BillManagerApp {
         await database.saveSetting('currency', '£');
         await database.saveSetting('theme', 'default');
         await database.saveSetting('notificationsEnabled', false);
+        await database.saveSetting('autoBackupEnabled', false);
 
         this.currencySymbol = '£';
         this.changeTheme('default', false);
         document.getElementById('currencySymbol').value = '£';
         document.getElementById('notificationsEnabled').checked = false;
+        document.getElementById('autoBackupEnabled').checked = false;
 
         notificationManager.stopPeriodicCheck();
 
@@ -1900,6 +1917,227 @@ class BillManagerApp {
             console.error('Export error:', error);
             alert('Failed to export data. Please try again.');
         }
+    }
+
+    async performAutomaticBackup() {
+        try {
+            // Check if auto backup is enabled
+            const autoBackupEnabled = await database.getSetting('autoBackupEnabled');
+            if (!autoBackupEnabled) {
+                return false;
+            }
+            
+            // Get all data from database - across all profiles
+            const bills = await database.getAllBillsAllProfiles();
+            const templates = await database.getAllTemplatesAllProfiles();
+            const profiles = await database.getAllProfiles();
+            const categories = await database.getCategories();
+            const settings = await database.getAllSettings();
+            
+            const exportData = {
+                version: '1.0',
+                exportDate: new Date().toISOString(),
+                bills: bills,
+                templates: templates,
+                profiles: profiles,
+                categories: categories,
+                settings: settings
+            };
+            
+            // Create filename with date stamp
+            const today = new Date().toISOString().split('T')[0];
+            const filename = `billmanager-auto-backup-${today}.json`;
+            const dataStr = JSON.stringify(exportData, null, 2);
+            
+            // Try to use File System Access API if folder is selected
+            if (this.backupFolderHandle) {
+                try {
+                    const fileHandle = await this.backupFolderHandle.getFileHandle(filename, { create: true });
+                    const writable = await fileHandle.createWritable();
+                    await writable.write(dataStr);
+                    await writable.close();
+                    
+                    console.log(`Automatic backup saved to selected folder: ${today}`);
+                } catch (error) {
+                    console.error('Error saving to folder:', error);
+                    // Fall back to download if folder access fails
+                    this.downloadBackupFile(dataStr, filename);
+                }
+            } else {
+                // No folder selected, use download
+                this.downloadBackupFile(dataStr, filename);
+            }
+            
+            // Update last backup date
+            await database.saveSetting('lastAutoBackupDate', today);
+            return true;
+        } catch (error) {
+            console.error('Automatic backup error:', error);
+            return false;
+        }
+    }
+
+    downloadBackupFile(dataStr, filename) {
+        const blob = new Blob([dataStr], { type: 'application/json' });
+        const url = URL.createObjectURL(blob);
+        const link = document.createElement('a');
+        link.href = url;
+        link.download = filename;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+        URL.revokeObjectURL(url);
+        console.log(`Automatic backup downloaded: ${filename}`);
+    }
+
+    async selectBackupFolder() {
+        try {
+            // Check if File System Access API is supported
+            if (!window.showDirectoryPicker) {
+                alert('Your browser does not support folder selection.\n\nBackups will be saved to your Downloads folder.\n\nThis feature requires Chrome/Edge 86+ or similar modern browsers.');
+                return;
+            }
+            
+            // Request folder access
+            const dirHandle = await window.showDirectoryPicker({
+                mode: 'readwrite',
+                startIn: 'downloads'
+            });
+            
+            // Store the folder handle
+            this.backupFolderHandle = dirHandle;
+            
+            // Try to build a path representation
+            let pathInfo = dirHandle.name;
+            try {
+                // Attempt to resolve path (works in some browsers)
+                if (dirHandle.resolve) {
+                    const path = await dirHandle.resolve(dirHandle);
+                    if (path && path.length > 0) {
+                        pathInfo = path.join('/');
+                    }
+                }
+            } catch (e) {
+                // Path resolution not available
+            }
+            
+            // Save folder info to settings for display
+            await database.saveSetting('backupFolderName', dirHandle.name);
+            await database.saveSetting('backupFolderPath', pathInfo);
+            
+            this.updateBackupFolderDisplay();
+            
+            // Show user-friendly instructions
+            alert(`✓ Backup folder selected: ${dirHandle.name}\n\nAutomatic backups will be saved here.\n\nIMPORTANT: Due to browser security, the full system path cannot be displayed.\n\nTo find your backup files:\n1. Open File Explorer/Finder\n2. Search for files starting with "billmanager-auto-backup"\n3. Check the folder you just selected\n\nNote: You may need to reselect this folder when you restart the app.`);
+        } catch (error) {
+            if (error.name === 'AbortError') {
+                console.log('Folder selection cancelled');
+            } else {
+                console.error('Error selecting folder:', error);
+                alert('Error selecting folder. Please try again.');
+            }
+        }
+    }
+
+    async updateBackupFolderDisplay() {
+        const backupFolderPath = document.getElementById('backupFolderPath');
+        const folderName = await database.getSetting('backupFolderName');
+        const savedPath = await database.getSetting('backupFolderPath');
+        
+        if (folderName && this.backupFolderHandle) {
+            // Active folder with handle
+            let displayText = `✓ Active backup folder: ${savedPath || folderName}`;
+            backupFolderPath.innerHTML = `${displayText}<br><span style="font-size: 0.85em; opacity: 0.8;">Backups will be saved directly to this folder<br>To view full path: Open File Explorer → Search "billmanager-auto-backup"</span>`;
+            backupFolderPath.style.color = 'var(--success-color)';
+        } else if (folderName) {
+            // Folder was previously selected but handle not available (need to reselect)
+            let displayText = `⚠️ Previously selected: ${savedPath || folderName}`;
+            backupFolderPath.innerHTML = `${displayText}<br><span style="font-size: 0.85em; opacity: 0.8;">Please reselect the folder to grant access (browser security requires this)</span>`;
+            backupFolderPath.style.color = 'var(--warning-color, orange)';
+        } else {
+            backupFolderPath.innerHTML = `No folder selected (will use browser's Downloads folder)<br><span style="font-size: 0.85em; opacity: 0.8;">Note: Browsers don't allow displaying full file system paths for security</span>`;
+            backupFolderPath.style.color = 'var(--text-secondary)';
+        }
+    }
+
+    async manualBackup() {
+        try {
+            // Get all data from database - across all profiles
+            const bills = await database.getAllBillsAllProfiles();
+            const templates = await database.getAllTemplatesAllProfiles();
+            const profiles = await database.getAllProfiles();
+            const categories = await database.getCategories();
+            const settings = await database.getAllSettings();
+            
+            const exportData = {
+                version: '1.0',
+                exportDate: new Date().toISOString(),
+                bills: bills,
+                templates: templates,
+                profiles: profiles,
+                categories: categories,
+                settings: settings
+            };
+            
+            // Create filename with timestamp
+            const now = new Date();
+            const timestamp = now.toISOString().replace(/[:.]/g, '-').split('T');
+            const filename = `billmanager-manual-backup-${timestamp[0]}-${timestamp[1].split('-')[0]}.json`;
+            const dataStr = JSON.stringify(exportData, null, 2);
+            
+            // Try to use File System Access API if folder is selected
+            if (this.backupFolderHandle) {
+                try {
+                    const fileHandle = await this.backupFolderHandle.getFileHandle(filename, { create: true });
+                    const writable = await fileHandle.createWritable();
+                    await writable.write(dataStr);
+                    await writable.close();
+                    
+                    alert(`✓ Backup saved successfully!\n\nFile: ${filename}\nLocation: Selected backup folder`);
+                    return;
+                } catch (error) {
+                    console.error('Error saving to folder:', error);
+                    if (confirm('Could not save to selected folder.\n\nWould you like to download to Downloads folder instead?')) {
+                        this.downloadBackupFile(dataStr, filename);
+                        alert(`✓ Backup downloaded to Downloads folder!\n\nFile: ${filename}`);
+                    }
+                    return;
+                }
+            } else {
+                // No folder selected, use download
+                this.downloadBackupFile(dataStr, filename);
+                alert(`✓ Backup downloaded successfully!\n\nFile: ${filename}\nLocation: Downloads folder`);
+            }
+        } catch (error) {
+            console.error('Manual backup error:', error);
+            alert('Failed to create backup. Please try again.');
+        }
+    }
+
+    async checkAndPerformDailyBackup() {
+        try {
+            const autoBackupEnabled = await database.getSetting('autoBackupEnabled');
+            if (!autoBackupEnabled) {
+                return;
+            }
+            
+            const lastBackupDate = await database.getSetting('lastAutoBackupDate');
+            const today = new Date().toISOString().split('T')[0];
+            
+            // Perform backup if never backed up or last backup was not today
+            if (!lastBackupDate || lastBackupDate !== today) {
+                await this.performAutomaticBackup();
+            }
+        } catch (error) {
+            console.error('Error checking daily backup:', error);
+        }
+    }
+
+    startDailyBackupSchedule() {
+        // Check for backup every hour
+        setInterval(async () => {
+            await this.checkAndPerformDailyBackup();
+        }, 60 * 60 * 1000); // 1 hour in milliseconds
     }
 
     async importData(event) {
