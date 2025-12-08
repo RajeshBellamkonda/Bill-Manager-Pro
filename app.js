@@ -734,8 +734,14 @@ class BillManagerApp {
             const creditKey = `monthlyCredit_${profileId}_${year}_${month}`;
             const currentCredit = parseFloat(await database.getSetting(creditKey)) || 0;
             
-            // If there's credit available, prompt to deduct
-            if (currentCredit > 0 && !bill.isCredit) {
+            // If this is a credit bill (positive credit), add to credit balance
+            if (bill.isCredit) {
+                const newCredit = currentCredit + bill.amount;
+                await database.saveSetting(creditKey, newCredit);
+                document.getElementById('monthlyCredit').value = newCredit.toFixed(2);
+            }
+            // If there's credit available, prompt to deduct from regular bills
+            else if (currentCredit > 0) {
                 const deductAmount = Math.min(currentCredit, bill.amount);
                 const shouldDeduct = confirm(
                     `Deduct ${this.currencySymbol}${deductAmount.toFixed(2)} from your credit?\n\n` +
