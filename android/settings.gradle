@@ -1,0 +1,2 @@
+rootProject.name = "Bill Manager Pro"
+include ':app'

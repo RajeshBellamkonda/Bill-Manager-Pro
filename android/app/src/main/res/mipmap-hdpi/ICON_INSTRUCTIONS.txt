@@ -1,0 +1,13 @@
+<!-- Placeholder for ic_launcher.xml - You should replace these with actual PNG icons -->
+<!-- To add proper icons:
+1. Use Android Studio: Right-click res → New → Image Asset
+2. Or manually copy PNG files to each mipmap-* folder
+3. Icon sizes needed:
+   - mipmap-mdpi: 48x48
+   - mipmap-hdpi: 72x72
+   - mipmap-xhdpi: 96x96
+   - mipmap-xxhdpi: 144x144
+   - mipmap-xxxhdpi: 192x192
+-->
+
+<!-- For now, create simple icons using the existing icon-*.png files from the web app -->
