@@ -11,12 +11,15 @@ class PWAHandler {
             (window.location.protocol === 'http:' || window.location.protocol === 'https:')) {
             navigator.serviceWorker.register('/service-worker.js')
                 .then((registration) => {
+                    alert('DEBUG: Service Worker registered successfully.');
                     console.log('Service Worker registered:', registration);
                 })
                 .catch((error) => {
+                    alert('DEBUG: Service Worker registration failed.');
                     console.log('Service Worker registration failed:', error);
                 });
         } else if (window.location.protocol === 'file:') {
+            alert('DEBUG: Service Worker not available on file:// protocol. Please use a web server (http://localhost).');
             console.log('Service Worker not available when using file:// protocol. Please use a web server (http://localhost).');
         }
 
