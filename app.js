@@ -923,15 +923,19 @@ class BillManagerApp {
         if (!templateName) return;
 
         try {
-            const bills = await database.getAllBills();
+            // Get bills from current month only
+            const year = this.currentMonth.getFullYear();
+            const month = this.currentMonth.getMonth();
+            const bills = await database.getBillsByMonth(year, month);
+            
             if (bills.length === 0) {
-                alert('No bills to create a template from. Add some bills first.');
+                alert('No bills in the current month to create a template from. Add some bills first.');
                 return;
             }
 
             await database.saveTemplate(templateName, bills);
             await this.loadTemplates();
-            alert('Template created successfully!');
+            alert(`Template created successfully with ${bills.length} bill(s) from ${this.currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}!`);
         } catch (error) {
             console.error('Error creating template:', error);
             alert('Error creating template. Please try again.');
@@ -977,10 +981,10 @@ class BillManagerApp {
         templateSelect.innerHTML = '<option value="">Select a template</option>' + 
             templates.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
 
-        // Update month select
+        // Update month select - start from next month, not current month
         const targetMonth = document.getElementById('targetMonth');
         const months = [];
-        for (let i = 0; i < 12; i++) {
+        for (let i = 1; i < 13; i++) {  // Changed from i = 0 to i = 1 to skip current month
             const date = new Date();
             date.setMonth(date.getMonth() + i);
             months.push({
@@ -1041,8 +1045,14 @@ class BillManagerApp {
             return;
         }
 
+        const [year, month] = targetMonth.split('-').map(Number);
+        const monthName = new Date(year, month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        
+        if (!confirm(`This will CLEAR all existing bills in ${monthName} and create new bills from the template. Continue?`)) {
+            return;
+        }
+
         try {
-            const [year, month] = targetMonth.split('-').map(Number);
             const added = await database.applyTemplateToMonth(templateId, year, month);
             
             alert(`Template applied! ${added.length} bill(s) added to ${new Date(year, month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`);
@@ -1061,16 +1071,26 @@ class BillManagerApp {
             return;
         }
 
-        if (!confirm('This will apply the template to all 12 months of the current year. Continue?')) {
+        const now = new Date();
+        const year = now.getFullYear();
+        const nextMonth = new Date(year, now.getMonth() + 1, 1).toLocaleDateString('en-US', { month: 'long' });
+        const remainingMonths = 12 - now.getMonth() - 1;
+        
+        if (remainingMonths <= 0) {
+            alert('No future months remaining in this year to apply the template.');
+            return;
+        }
+        
+        if (!confirm(`This will CLEAR existing bills in ${nextMonth} and all following months of ${year} (${remainingMonths} month(s)) and create new bills from the template. The current month will not be affected. Continue?`)) {
             return;
         }
 
         try {
-            const year = new Date().getFullYear();
             const results = await database.applyTemplateToYear(templateId, year);
             
             const totalAdded = results.reduce((sum, r) => sum + r.added, 0);
-            alert(`Template applied to full year! ${totalAdded} bill(s) added across 12 months`);
+            const monthCount = results.length;
+            alert(`Template applied! ${totalAdded} bill(s) added across ${monthCount} month(s) (starting from next month)`);
             this.switchTab('timeline');
         } catch (error) {
             console.error('Error applying template:', error);

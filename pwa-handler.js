@@ -13,9 +13,10 @@ class PWAHandler {
                 .then((registration) => {
                     alert('DEBUG: Service Worker registered successfully.');
                     console.log('Service Worker registered:', registration);
+                    registration.showNotification('This is a notification', {body: 'Do you see it?', requireInteraction: true, icon: 'fav-icon.png'})
                 })
                 .catch((error) => {
-                    alert('DEBUG: Service Worker registration failed.');
+                    alert('DEBUG: Service Worker registration failed. error: ' + error);
                     console.log('Service Worker registration failed:', error);
                 });
         } else if (window.location.protocol === 'file:') {

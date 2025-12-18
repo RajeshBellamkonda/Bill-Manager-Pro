@@ -302,33 +302,31 @@ class BillDatabase {
         const template = await this.getTemplateById(templateId);
         if (!template) return;
 
+        // Clear all existing bills for this month
+        const existingBills = await this.getBillsByMonth(year, month);
+        for (const bill of existingBills) {
+            await this.deleteBill(bill.id);
+        }
+
+        // Add bills from template
         const addedBills = [];
         for (const billTemplate of template.bills) {
             const dueDate = new Date(year, month, billTemplate.dayOfMonth);
             
-            // Check if this bill already exists for this month
-            const existingBills = await this.getBillsByMonth(year, month);
-            const duplicate = existingBills.find(b => 
-                b.name === billTemplate.name && 
-                new Date(b.dueDate).getDate() === billTemplate.dayOfMonth
-            );
-
-            if (!duplicate) {
-                const newBill = {
-                    name: billTemplate.name,
-                    amount: billTemplate.amount,
-                    dueDate: dueDate.toISOString().split('T')[0],
-                    frequency: billTemplate.frequency,
-                    category: billTemplate.category,
-                    notes: billTemplate.notes,
-                    reminderDays: billTemplate.reminderDays,
-                    status: 'pending',
-                    isPaid: false
-                };
-                
-                const billId = await this.addBill(newBill);
-                addedBills.push(billId);
-            }
+            const newBill = {
+                name: billTemplate.name,
+                amount: billTemplate.amount,
+                dueDate: dueDate.toISOString().split('T')[0],
+                frequency: billTemplate.frequency,
+                category: billTemplate.category,
+                notes: billTemplate.notes,
+                reminderDays: billTemplate.reminderDays,
+                status: 'pending',
+                isPaid: false
+            };
+            
+            const billId = await this.addBill(newBill);
+            addedBills.push(billId);
         }
 
         return addedBills;
@@ -336,7 +334,14 @@ class BillDatabase {
 
     async applyTemplateToYear(templateId, year) {
         const results = [];
-        for (let month = 0; month < 12; month++) {
+        const now = new Date();
+        const currentYear = now.getFullYear();
+        const currentMonth = now.getMonth();
+        
+        // Start from next month if applying to current year, otherwise start from January
+        const startMonth = (year === currentYear) ? currentMonth + 1 : 0;
+        
+        for (let month = startMonth; month < 12; month++) {
             const added = await this.applyTemplateToMonth(templateId, year, month);
             results.push({ month, added: added.length });
         }
