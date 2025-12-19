@@ -9,22 +9,42 @@ class PWAHandler {
         // Register service worker (only on HTTP/HTTPS, not file://)
         if ('serviceWorker' in navigator && 
             (window.location.protocol === 'http:' || window.location.protocol === 'https:')) {
+            
+            // Listen for controller change (when SW takes control)
+            navigator.serviceWorker.addEventListener('controllerchange', () => {
+                alert('DEBUG PWA: ServiceWorker controller changed - now active!');
+                console.log('ServiceWorker controller changed');
+            });
+            
             navigator.serviceWorker.register('https://rajeshbellamkonda.github.io/Bill-Manager-Pro/service-worker.js')
                 .then(async (registration) => {
                     alert(`DEBUG PWA: ServiceWorker registered successfully! Scope: ${registration.scope}`);
                     console.log('Service Worker registered:', registration);
                     
+                    // Check if there's an update waiting
+                    if (registration.waiting) {
+                        alert('DEBUG PWA: ServiceWorker update waiting, activating...');
+                        registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+                    }
+                    
                     // Wait for the service worker to be ready
                     await navigator.serviceWorker.ready;
                     
-                    // If no controller yet, reload the page to activate
+                    // Check controller status
                     if (!navigator.serviceWorker.controller) {
-                        alert('DEBUG PWA: ServiceWorker registered but not controlling page yet. Page will reload to activate it.');
-                        window.location.reload();
+                        alert('DEBUG PWA: ServiceWorker ready but no controller. Reloading page once to activate...');
+                        // Mark that we've done the reload to prevent infinite loop
+                        if (!sessionStorage.getItem('sw_reloaded')) {
+                            sessionStorage.setItem('sw_reloaded', 'true');
+                            window.location.reload();
+                        } else {
+                            alert('DEBUG PWA: Already reloaded once. ServiceWorker might need manual activation. Try closing all tabs and reopening.');
+                        }
                         return;
                     }
                     
                     alert('DEBUG PWA: ServiceWorker is ready and controlling the page!');
+                    sessionStorage.removeItem('sw_reloaded'); // Clear the flag on success
                 })
                 .catch((error) => {
                     alert(`DEBUG PWA ERROR: ServiceWorker registration failed: ${error.message}`);
