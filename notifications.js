@@ -8,39 +8,40 @@ class NotificationManager {
     async requestPermission() {
         if (!('Notification' in window)) {
             console.log('This browser does not support notifications');
-            alert('DEBUG: Notification API not supported in this browser');
+            alert('Notifications are not supported in this browser');
             return false;
         }
 
         // Always check current permission state
         this.permission = Notification.permission;
         console.log('Current notification permission:', this.permission);
-        alert(`DEBUG: Current permission state: ${this.permission}`);
 
         if (this.permission === 'granted') {
             console.log('Permission already granted');
-            alert('DEBUG: Notification permission already granted ✓');
             return true;
         }
 
         if (this.permission === 'denied') {
             console.log('Notification permission denied');
-            alert('DEBUG: Notification permission DENIED. Please enable in browser settings.');
+            alert('Notification permission was denied. Please enable it in your browser settings.');
             return false;
         }
 
         // Permission is 'default' - need to request it
         try {
             console.log('Requesting notification permission...');
-            alert('DEBUG: About to request notification permission...');
             const permission = await Notification.requestPermission();
             this.permission = permission;
             console.log('Notification permission result:', permission);
-            alert(`DEBUG: Permission request result: ${permission}`);
+            
+            if (permission === 'granted') {
+                alert('Notifications enabled! You will receive reminders for your bills.');
+            }
+            
             return permission === 'granted';
         } catch (error) {
             console.error('Error requesting notification permission:', error);
-            alert(`DEBUG ERROR: Failed to request permission: ${error.message}`);
+            alert(`Failed to request notification permission: ${error.message}`);
             return false;
         }
     }
@@ -51,30 +52,22 @@ class NotificationManager {
         
         if (this.permission !== 'granted') {
             console.warn('Cannot show notification. Permission:', this.permission);
-            alert(`DEBUG: Cannot show notification. Permission is: ${this.permission}`);
             return null;
         }
 
         try {
             // Check if service worker is available (required for Android Chrome)
-            const hasSW = 'serviceWorker' in navigator;
-            let hasController = navigator.serviceWorker && navigator.serviceWorker.controller;
-            
-            alert(`DEBUG: Attempting notification "${title}"\nServiceWorker in navigator: ${hasSW}\nServiceWorker controller: ${hasController}`);
-            
-            if (hasSW) {
+            if ('serviceWorker' in navigator) {
                 // Wait for service worker to be ready
                 const registration = await navigator.serviceWorker.ready;
                 
-                // Check again for controller after waiting
-                hasController = navigator.serviceWorker.controller;
+                // Check for controller after waiting
+                const hasController = navigator.serviceWorker.controller;
                 
-                if (!hasController) {
-                    alert('DEBUG WARNING: ServiceWorker ready but no controller. This might be the first load. Try reloading the page.');
-                    // Try fallback notification
-                } else {
-                    alert(`DEBUG: ServiceWorker ready with controller. About to show notification via SW...`);
-                    
+                console.log('ServiceWorker status:', { ready: true, hasController });
+                
+                if (hasController) {
+                    // Use ServiceWorker notification (Android Chrome)
                     await registration.showNotification(title, {
                         icon: 'fav-icon.png',
                         badge: 'fav-icon.png',
@@ -85,19 +78,15 @@ class NotificationManager {
                         ...options
                     });
                     console.log('Service Worker notification shown:', title);
-                    alert(`DEBUG SUCCESS: Notification shown via ServiceWorker! "${title}"`);
                     return true;
                 }
             }
             
-            // Fallback to regular Notification API
-            alert(`DEBUG: Using fallback Notification API...`);
-            
+            // Fallback to regular Notification API (Desktop browsers)
+            console.log('Using fallback Notification API');
             const notification = new Notification(title, {
                 icon: 'fav-icon.png',
                 badge: 'fav-icon.png',
-                priority: 'high',
-                urgency: 'high',
                 ...options
             });
 
@@ -107,22 +96,19 @@ class NotificationManager {
             };
 
             console.log('Regular notification shown:', title);
-            alert(`DEBUG SUCCESS: Regular notification shown! "${title}"`);
             return notification;
         } catch (error) {
             console.error('Error showing notification:', error);
-            alert(`DEBUG ERROR: Failed to show notification!\nError: ${error.message}\nTitle: "${title}"`);
+            alert(`Failed to show notification: ${error.message}`);
             return null;
         }
     }
 
     async checkUpcomingBills() {
-        alert(`DEBUG: Starting checkUpcomingBills()`);
         const bills = await database.getAllBills();
         const today = new Date();
         today.setHours(0, 0, 0, 0);
         let notificationCount = 0;
-        alert(`DEBUG: Found ${bills.length} total bills to check`);
 
         bills.forEach(bill => {
             if (bill.isPaid) return;
@@ -161,7 +147,7 @@ class NotificationManager {
             }
         });
 
-        alert(`DEBUG: checkUpcomingBills complete. Sent ${notificationCount} notifications`);
+        console.log(`Checked ${bills.length} bills, sent ${notificationCount} notifications`);
         return notificationCount;
     }
 

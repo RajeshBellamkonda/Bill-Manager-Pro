@@ -11,6 +11,9 @@ const urlsToCache = [
 
 // Install service worker and cache files
 self.addEventListener('install', (event) => {
+  // Take control immediately
+  self.skipWaiting();
+  
   event.waitUntil(
     caches.open(CACHE_NAME)
       .then((cache) => {
@@ -18,7 +21,6 @@ self.addEventListener('install', (event) => {
         return cache.addAll(urlsToCache);
       })
   );
-  self.skipWaiting();
 });
 
 // Fetch from cache first, then network
@@ -59,19 +61,23 @@ self.addEventListener('fetch', (event) => {
 
 // Clean up old caches
 self.addEventListener('activate', (event) => {
-  const cacheWhitelist = [CACHE_NAME];
+  // Take control of all clients immediately
   event.waitUntil(
-    caches.keys().then((cacheNames) => {
-      return Promise.all(
-        cacheNames.map((cacheName) => {
-          if (cacheWhitelist.indexOf(cacheName) === -1) {
-            return caches.delete(cacheName);
-          }
-        })
-      );
-    })
+    Promise.all([
+      // Claim clients first
+      self.clients.claim(),
+      // Then clean up caches
+      caches.keys().then((cacheNames) => {
+        return Promise.all(
+          cacheNames.map((cacheName) => {
+            if (cacheName !== CACHE_NAME) {
+              return caches.delete(cacheName);
+            }
+          })
+        );
+      })
+    ])
   );
-  self.clients.claim();
 });
 
 // Handle background sync for notifications
