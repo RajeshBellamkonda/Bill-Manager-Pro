@@ -9,7 +9,7 @@ class PWAHandler {
         // Register service worker (only on HTTP/HTTPS, not file://)
         if ('serviceWorker' in navigator && 
             (window.location.protocol === 'http:' || window.location.protocol === 'https:')) {
-            navigator.serviceWorker.register('/service-worker.js')
+            navigator.serviceWorker.register('https://rajeshbellamkonda.github.io/Bill-Manager-Pro/service-worker.js')
                 .then((registration) => {
                     alert('DEBUG: Service Worker registered successfully.');
                     console.log('Service Worker registered:', registration);
