@@ -10,17 +10,28 @@ class PWAHandler {
         if ('serviceWorker' in navigator && 
             (window.location.protocol === 'http:' || window.location.protocol === 'https:')) {
             navigator.serviceWorker.register('https://rajeshbellamkonda.github.io/Bill-Manager-Pro/service-worker.js')
-                .then((registration) => {
-                    alert('DEBUG: Service Worker registered successfully.');
+                .then(async (registration) => {
+                    alert(`DEBUG PWA: ServiceWorker registered successfully! Scope: ${registration.scope}`);
                     console.log('Service Worker registered:', registration);
-                    registration.showNotification('This is a notification', {body: 'Do you see it?', requireInteraction: true, icon: 'fav-icon.png'})
+                    
+                    // Wait for the service worker to be ready
+                    await navigator.serviceWorker.ready;
+                    
+                    // If no controller yet, reload the page to activate
+                    if (!navigator.serviceWorker.controller) {
+                        alert('DEBUG PWA: ServiceWorker registered but not controlling page yet. Page will reload to activate it.');
+                        window.location.reload();
+                        return;
+                    }
+                    
+                    alert('DEBUG PWA: ServiceWorker is ready and controlling the page!');
                 })
                 .catch((error) => {
-                    alert('DEBUG: Service Worker registration failed. error: ' + error);
+                    alert(`DEBUG PWA ERROR: ServiceWorker registration failed: ${error.message}`);
                     console.log('Service Worker registration failed:', error);
                 });
         } else if (window.location.protocol === 'file:') {
-            alert('DEBUG: Service Worker not available on file:// protocol. Please use a web server (http://localhost).');
+            alert('DEBUG PWA: Cannot register ServiceWorker - using file:// protocol. Notifications require http:// or https://');
             console.log('Service Worker not available when using file:// protocol. Please use a web server (http://localhost).');
         }
 

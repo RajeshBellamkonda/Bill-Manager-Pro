@@ -1784,6 +1784,16 @@ header h1 {
     margin-bottom: 25px;
 }
 
+.create-template-form {
+    display: flex;
+    gap: 10px;
+    align-items: center;
+}
+
+.create-template-form select {
+    min-width: 200px;
+}
+
 .templates-list {
     display: grid;
     gap: 15px;

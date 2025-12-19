@@ -919,23 +919,31 @@ class BillManagerApp {
     }
 
     async createTemplate() {
+        const sourceMonth = document.getElementById('sourceMonth').value;
+        
+        if (!sourceMonth) {
+            alert('Please select a source month first');
+            return;
+        }
+        
         const templateName = prompt('Enter a name for this template:');
         if (!templateName) return;
 
         try {
-            // Get bills from current month only
-            const year = this.currentMonth.getFullYear();
-            const month = this.currentMonth.getMonth();
+            // Get bills from selected month
+            const [year, month] = sourceMonth.split('-').map(Number);
             const bills = await database.getBillsByMonth(year, month);
             
             if (bills.length === 0) {
-                alert('No bills in the current month to create a template from. Add some bills first.');
+                const monthName = new Date(year, month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                alert(`No bills in ${monthName} to create a template from. Add some bills first.`);
                 return;
             }
 
             await database.saveTemplate(templateName, bills);
             await this.loadTemplates();
-            alert(`Template created successfully with ${bills.length} bill(s) from ${this.currentMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}!`);
+            const monthName = new Date(year, month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+            alert(`Template created successfully with ${bills.length} bill(s) from ${monthName}!`);
         } catch (error) {
             console.error('Error creating template:', error);
             alert('Error creating template. Please try again.');
@@ -980,6 +988,20 @@ class BillManagerApp {
         // Update select
         templateSelect.innerHTML = '<option value="">Select a template</option>' + 
             templates.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
+
+        // Populate source month dropdown with past 12 months
+        const sourceMonth = document.getElementById('sourceMonth');
+        const sourceMonths = [];
+        for (let i = 11; i >= 0; i--) {  // Start from 11 months ago to current month
+            const date = new Date();
+            date.setMonth(date.getMonth() - i);
+            sourceMonths.push({
+                value: `${date.getFullYear()}-${date.getMonth()}`,
+                label: date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+            });
+        }
+        sourceMonth.innerHTML = '<option value="">Select source month</option>' +
+            sourceMonths.map(m => `<option value="${m.value}">${m.label}</option>`).join('');
 
         // Update month select - start from next month, not current month
         const targetMonth = document.getElementById('targetMonth');

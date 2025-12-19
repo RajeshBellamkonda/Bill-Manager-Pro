@@ -58,47 +58,57 @@ class NotificationManager {
         try {
             // Check if service worker is available (required for Android Chrome)
             const hasSW = 'serviceWorker' in navigator;
-            const hasController = navigator.serviceWorker && navigator.serviceWorker.controller;
+            let hasController = navigator.serviceWorker && navigator.serviceWorker.controller;
             
             alert(`DEBUG: Attempting notification "${title}"\nServiceWorker in navigator: ${hasSW}\nServiceWorker controller: ${hasController}`);
             
-            if (hasSW && hasController) {
+            if (hasSW) {
+                // Wait for service worker to be ready
                 const registration = await navigator.serviceWorker.ready;
-                alert(`DEBUG: ServiceWorker ready. About to show notification via SW...`);
                 
-                await registration.showNotification(title, {
-                    icon: 'fav-icon.png',
-                    badge: 'fav-icon.png',
-                    vibrate: [200, 100, 200],
-                    requireInteraction: options.requireInteraction || false,
-                    priority: 'high',
-                    urgency: 'high',
-                    ...options
-                });
-                console.log('Service Worker notification shown:', title);
-                alert(`DEBUG SUCCESS: Notification shown via ServiceWorker! "${title}"`);
-                return true;
-            } else {
-                alert(`DEBUG: No ServiceWorker controller. Using fallback Notification API...`);
+                // Check again for controller after waiting
+                hasController = navigator.serviceWorker.controller;
                 
-                // Fallback to regular Notification API for desktop
-                const notification = new Notification(title, {
-                    icon: 'fav-icon.png',
-                    badge: 'fav-icon.png',
-                    priority: 'high',
-                    urgency: 'high',
-                    ...options
-                });
-
-                notification.onclick = () => {
-                    window.focus();
-                    notification.close();
-                };
-
-                console.log('Regular notification shown:', title);
-                alert(`DEBUG SUCCESS: Regular notification shown! "${title}"`);
-                return notification;
+                if (!hasController) {
+                    alert('DEBUG WARNING: ServiceWorker ready but no controller. This might be the first load. Try reloading the page.');
+                    // Try fallback notification
+                } else {
+                    alert(`DEBUG: ServiceWorker ready with controller. About to show notification via SW...`);
+                    
+                    await registration.showNotification(title, {
+                        icon: 'fav-icon.png',
+                        badge: 'fav-icon.png',
+                        vibrate: [200, 100, 200],
+                        requireInteraction: options.requireInteraction || false,
+                        priority: 'high',
+                        urgency: 'high',
+                        ...options
+                    });
+                    console.log('Service Worker notification shown:', title);
+                    alert(`DEBUG SUCCESS: Notification shown via ServiceWorker! "${title}"`);
+                    return true;
+                }
             }
+            
+            // Fallback to regular Notification API
+            alert(`DEBUG: Using fallback Notification API...`);
+            
+            const notification = new Notification(title, {
+                icon: 'fav-icon.png',
+                badge: 'fav-icon.png',
+                priority: 'high',
+                urgency: 'high',
+                ...options
+            });
+
+            notification.onclick = () => {
+                window.focus();
+                notification.close();
+            };
+
+            console.log('Regular notification shown:', title);
+            alert(`DEBUG SUCCESS: Regular notification shown! "${title}"`);
+            return notification;
         } catch (error) {
             console.error('Error showing notification:', error);
             alert(`DEBUG ERROR: Failed to show notification!\nError: ${error.message}\nTitle: "${title}"`);
