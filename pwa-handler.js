@@ -30,6 +30,7 @@ class PWAHandler {
                     
                     // Check controller status
                     if (!navigator.serviceWorker.controller) {
+                        console.log('ServiceWorker ready but no controller. Reloading page once to activate...');
                         // Mark that we've done the reload to prevent infinite loop
                         if (!sessionStorage.getItem('sw_reloaded')) {
                             sessionStorage.setItem('sw_reloaded', 'true');
