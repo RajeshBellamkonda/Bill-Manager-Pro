@@ -17,7 +17,7 @@ class NotificationManager {
     }
 
     showWorkerNotification() {
-    navigator.serviceWorker.register('https://rajeshbellamkonda.github.io/Bill-Manager-Pro/service-worker.js')
+    navigator.serviceWorker.register('https://rajeshbellamkonda.github.io/Bill-Manager-Pro/notifications.js')
     .then(function(registration) {
         registration.update();
 
@@ -134,7 +134,7 @@ class NotificationManager {
                 try {
                     // https://www.kenherbert.dev/browser-notification-tester/
                     // https://www.kenherbert.dev/static/js/browser-notifications-test.js
-                     alert('DEBUG PWA: New - Test: Showing notification via ServiceWorker'); 
+                     // alert('DEBUG PWA: New - Test: Showing notification via ServiceWorker'); 
                      this.showWorkerNotification();
 
                     // Get or reuse existing registration
