@@ -5,6 +5,16 @@ class NotificationManager {
         this.checkInterval = null;
     }
 
+    /**
+     * Determine if running on a Chromium browser on Android
+     */
+    isChromiumOnAndroid() {
+        if (navigator.userAgent.match(/Android/i) && navigator.userAgent.match(/Chrome/i)) {
+            return true;
+        }
+        return false;
+    }
+
     async requestPermission() {
         if (!('Notification' in window)) {
             console.log('This browser does not support notifications');
@@ -56,47 +66,71 @@ class NotificationManager {
         }
 
         try {
-            // Check if service worker is available (required for Android Chrome)
-            if ('serviceWorker' in navigator) {
-                // Wait for service worker to be ready
-                const registration = await navigator.serviceWorker.ready;
+            // Use ServiceWorker for Android Chrome
+            if (this.isChromiumOnAndroid() && 'serviceWorker' in navigator) {
+                console.log('Using ServiceWorker notification for Android Chrome');
                 
-                // Check for controller after waiting
-                const hasController = navigator.serviceWorker.controller;
-                
-                console.log('ServiceWorker status:', { ready: true, hasController });
-                
-                if (hasController) {
-                    // Use ServiceWorker notification (Android Chrome)
-                    await registration.showNotification(title, {
-                        icon: 'fav-icon.png',
-                        badge: 'fav-icon.png',
-                        vibrate: [200, 100, 200],
-                        requireInteraction: options.requireInteraction || false,
-                        priority: 'high',
-                        urgency: 'high',
-                        ...options
-                    });
-                    console.log('Service Worker notification shown:', title);
-                    return true;
+                const registration = await navigator.serviceWorker.register('https://rajeshbellamkonda.github.io/Bill-Manager-Pro/service-worker.js');
+                await registration.update();
+
+                // Create message channel for communication
+                const messageChannel = new MessageChannel();
+
+                if (registration.active) {
+                    registration.active.postMessage({
+                        type: 'CONNECT'
+                    }, [messageChannel.port2]);
+
+                    messageChannel.port1.onmessage = function(event) {
+                        if (event.data.payload === 'closed') {
+                            console.log('Notification closed');
+                        }
+                    };
                 }
+
+                await registration.showNotification(title, {
+                    body: options.body || '',
+                    icon: 'https://rajeshbellamkonda.github.io/Bill-Manager-Pro/fav-icon.png',
+                    badge: 'https://rajeshbellamkonda.github.io/Bill-Manager-Pro/fav-icon.png',
+                    vibrate: [200, 100, 200],
+                    requireInteraction: options.requireInteraction || false,
+                    tag: options.tag || 'bill-reminder',
+                    ...options
+                });
+                
+                console.log('ServiceWorker notification shown:', title);
+                return true;
+            } 
+            // Fallback to regular Notification API for other platforms
+            else {
+                console.log('Using standard Notification API');
+                const notification = new Notification(title, {
+                    body: options.body || '',
+                    icon: 'https://rajeshbellamkonda.github.io/Bill-Manager-Pro/fav-icon.png',
+                    badge: 'https://rajeshbellamkonda.github.io/Bill-Manager-Pro/fav-icon.png',
+                    requireInteraction: options.requireInteraction || false,
+                    ...options
+                });
+
+                notification.onclick = () => {
+                    window.focus();
+                    notification.close();
+                };
+
+                notification.onshow = () => {
+                    console.log('Standard notification shown:', title);
+                };
+
+                notification.onerror = (event) => {
+                    console.error('Notification error:', event.type);
+                };
+
+                notification.onclose = () => {
+                    console.log('Notification closed:', title);
+                };
+
+                return notification;
             }
-            
-            // Fallback to regular Notification API (Desktop browsers)
-            console.log('Using fallback Notification API');
-            const notification = new Notification(title, {
-                icon: 'fav-icon.png',
-                badge: 'fav-icon.png',
-                ...options
-            });
-
-            notification.onclick = () => {
-                window.focus();
-                notification.close();
-            };
-
-            console.log('Regular notification shown:', title);
-            return notification;
         } catch (error) {
             console.error('Error showing notification:', error);
             alert(`Failed to show notification: ${error.message}`);
