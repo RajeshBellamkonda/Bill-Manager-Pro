@@ -38,30 +38,8 @@ class NotificationManager {
             // Register new ServiceWorker with correct scope
             alert('DEBUG PWA: Registering new ServiceWorker');
             console.log('Registering new ServiceWorker');
-            this.swRegistration = await navigator.serviceWorker.register('https://rajeshbellamkonda.github.io/Bill-Manager-Pro/service-worker.js')
-            .then(function(registration) {
-        registration.update();
-
-        const messageChannel = new MessageChannel();
-
-        registration.active.postMessage({
-            type: 'CONNECT'
-        }, [messageChannel.port2]);
-
-
-        messageChannel.port1.onmessage = function(event) {
-            if(event.data.payload === 'closed') {
-                document.getElementById('notification-status').innerHTML = 'closed';
-            }
-        };
-
-
-        registration.showNotification('This is a notification', {body: 'Do you see it?', requireInteraction: true, icon: 'https://kenherbert.dev/static/img/kh-logo.png'})
-            .then(function() {
-                document.getElementById('notification-status').innerHTML = 'displayed';
-            });
-    });
-            
+            this.swRegistration = await navigator.serviceWorker.register('https://rajeshbellamkonda.github.io/Bill-Manager-Pro/service-worker.js');
+                        
             // Wait for it to be ready
             await navigator.serviceWorker.ready;
             
