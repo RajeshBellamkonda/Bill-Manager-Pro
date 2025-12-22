@@ -108,18 +108,28 @@ class NotificationManager {
                 
                 // Get or reuse existing registration
                 const registration = await this.getServiceWorkerRegistration();
+                
+                // Wait for ServiceWorker to be active
+                await navigator.serviceWorker.ready;
+                
+                // Check if we have an active ServiceWorker
+                if (!registration.active) {
+                    alert('DEBUG PWA: ServiceWorker not active yet, waiting...');
+                    // If not active, wait a bit and try again
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                }
 
-                // Create message channel for communication
-                const messageChannel = new MessageChannel();
-
+                // Create message channel for communication only if active
                 if (registration.active) {
+                    const messageChannel = new MessageChannel();
+                    
                     alert('DEBUG PWA: Sending CONNECT message to ServiceWorker');
                     registration.active.postMessage({
                         type: 'CONNECT'
                     }, [messageChannel.port2]);
 
                     messageChannel.port1.onmessage = function(event) {
-                        if (event.data.payload === 'closed') {
+                        if (event.data && event.data.payload === 'closed') {
                             console.log('Notification closed');
                         }
                     };
