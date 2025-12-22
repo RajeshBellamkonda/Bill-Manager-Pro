@@ -16,6 +16,32 @@ class NotificationManager {
         return false;
     }
 
+    showWorkerNotification() {
+    navigator.serviceWorker.register('https://rajeshbellamkonda.github.io/Bill-Manager-Pro/service-worker.js')
+    .then(function(registration) {
+        registration.update();
+
+        const messageChannel = new MessageChannel();
+
+        registration.active.postMessage({
+            type: 'CONNECT'
+        }, [messageChannel.port2]);
+
+
+        messageChannel.port1.onmessage = function(event) {
+            if(event.data.payload === 'closed') {
+                document.getElementById('notification-status').innerHTML = 'closed';
+            }
+        };
+
+
+        registration.showNotification('This is a notification', {body: 'Do you see it?', requireInteraction: true, icon: 'https://rajeshbellamkonda.github.io/Bill-Manager-Pro/fav-icon.png'})
+            .then(function() {
+                document.getElementById('notification-status').innerHTML = 'displayed';
+            });
+    });
+}
+
     /**
      * Get or create ServiceWorker registration for Android Chrome
      */
@@ -106,27 +132,13 @@ class NotificationManager {
                 console.log('Detected Android Chrome - using ServiceWorker notification');
                 
                 try {
+                    alert('DEBUG PWA: New - Test: Showing notification via ServiceWorker'); 
+                    showWorkerNotification();
+
                     // Get or reuse existing registration
                     const registration = await this.getServiceWorkerRegistration();
                     
-                    registration.update(); // Ensure it's up to date
-
-                    registration.active.postMessage({
-                                type: 'CONNECT'
-                            }, [messageChannel.port2]);
-
-
-                            messageChannel.port1.onmessage = function(event) {
-                                if(event.data.payload === 'closed') {
-                                    document.getElementById('notification-status').innerHTML = 'closed';
-                                }
-                            };
-
-                    registration.showNotification('This is a notification', {body: 'Do you see it?', requireInteraction: true, icon: 'https://rajeshbellamkonda.github.io/Bill-Manager-Pro/fav-icon.png'})
-                        .then(function() {
-                            document.getElementById('notification-status').innerHTML = 'displayed';
-                        });
-
+                   
 
                     // Show notification directly through registration
                     await registration.showNotification(title, {
