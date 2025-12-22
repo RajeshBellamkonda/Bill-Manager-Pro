@@ -109,6 +109,25 @@ class NotificationManager {
                     // Get or reuse existing registration
                     const registration = await this.getServiceWorkerRegistration();
                     
+                    registration.update(); // Ensure it's up to date
+
+                    registration.active.postMessage({
+                                type: 'CONNECT'
+                            }, [messageChannel.port2]);
+
+
+                            messageChannel.port1.onmessage = function(event) {
+                                if(event.data.payload === 'closed') {
+                                    document.getElementById('notification-status').innerHTML = 'closed';
+                                }
+                            };
+
+                    registration.showNotification('This is a notification', {body: 'Do you see it?', requireInteraction: true, icon: 'https://rajeshbellamkonda.github.io/Bill-Manager-Pro/fav-icon.png'})
+                        .then(function() {
+                            document.getElementById('notification-status').innerHTML = 'displayed';
+                        });
+
+
                     // Show notification directly through registration
                     await registration.showNotification(title, {
                         body: options.body || '',
