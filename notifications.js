@@ -3,6 +3,7 @@ class NotificationManager {
     constructor() {
         this.permission = Notification.permission;
         this.checkInterval = null;
+        this.swRegistration = null; // Cache the ServiceWorker registration
     }
 
     /**
@@ -13,6 +14,38 @@ class NotificationManager {
             return true;
         }
         return false;
+    }
+
+    /**
+     * Get or create ServiceWorker registration for Android Chrome
+     */
+    async getServiceWorkerRegistration() {
+        if (this.swRegistration) {
+            return this.swRegistration;
+        }
+
+        try {
+            // Check if already registered
+            const existingRegistration = await navigator.serviceWorker.getRegistration('https://rajeshbellamkonda.github.io/Bill-Manager-Pro/');
+            
+            if (existingRegistration) {
+                console.log('Using existing ServiceWorker registration');
+                this.swRegistration = existingRegistration;
+                return existingRegistration;
+            }
+
+            // Register new ServiceWorker
+            console.log('Registering new ServiceWorker');
+            this.swRegistration = await navigator.serviceWorker.register('https://rajeshbellamkonda.github.io/Bill-Manager-Pro/service-worker.js');
+            
+            // Wait for it to be ready
+            await navigator.serviceWorker.ready;
+            
+            return this.swRegistration;
+        } catch (error) {
+            console.error('ServiceWorker registration error:', error);
+            throw error;
+        }
     }
 
     async requestPermission() {
@@ -70,8 +103,8 @@ class NotificationManager {
             if (this.isChromiumOnAndroid() && 'serviceWorker' in navigator) {
                 console.log('Using ServiceWorker notification for Android Chrome');
                 
-                const registration = await navigator.serviceWorker.register('https://rajeshbellamkonda.github.io/Bill-Manager-Pro/service-worker.js');
-                await registration.update();
+                // Get or reuse existing registration
+                const registration = await this.getServiceWorkerRegistration();
 
                 // Create message channel for communication
                 const messageChannel = new MessageChannel();
