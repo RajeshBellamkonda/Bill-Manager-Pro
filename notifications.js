@@ -132,10 +132,10 @@ class NotificationManager {
                 console.log('Detected Android Chrome - using ServiceWorker notification');
                 
                 try {
-                    // https://www.kenherbert.dev/browser-notification-tester/
-                    // https://www.kenherbert.dev/static/js/browser-notifications-test.js
-                     // alert('DEBUG PWA: New - Test: Showing notification via ServiceWorker'); 
-                     this.showWorkerNotification();
+                        // https://www.kenherbert.dev/browser-notification-tester/
+                        // https://www.kenherbert.dev/static/js/browser-notifications-test.js
+                        // alert('DEBUG PWA: New - Test: Showing notification via ServiceWorker'); 
+                        // this.showWorkerNotification();
 
                     // Get or reuse existing registration
                     const registration = await this.getServiceWorkerRegistration();
