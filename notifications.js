@@ -46,30 +46,17 @@ class NotificationManager {
      * Get or create ServiceWorker registration for Android Chrome
      */
     async getServiceWorkerRegistration() {
-        if (this.swRegistration) {
+        if (this.swRegistration && this.swRegistration.active) {
             return this.swRegistration;
         }
 
         try {
-            // Check if already registered
-            const existingRegistration = await navigator.serviceWorker.getRegistration();
+            // Wait for the service worker to be ready
+            const registration = await navigator.serviceWorker.ready;
             
-            if (existingRegistration) {
-                alert('DEBUG PWA: Using existing ServiceWorker registration');
-                console.log('Using existing ServiceWorker registration');
-                this.swRegistration = existingRegistration;
-                return existingRegistration;
-            }
-
-            // Register new ServiceWorker with correct scope
-            alert('DEBUG PWA: Registering new ServiceWorker');
-            console.log('Registering new ServiceWorker');
-            this.swRegistration = await navigator.serviceWorker.register('https://rajeshbellamkonda.github.io/Bill-Manager-Pro/service-worker.js');
-                        
-            // Wait for it to be ready
-            await navigator.serviceWorker.ready;
-            
-            return this.swRegistration;
+            console.log('ServiceWorker ready and active');
+            this.swRegistration = registration;
+            return registration;
         } catch (error) {
             console.error('ServiceWorker registration error:', error);
             throw error;
@@ -155,11 +142,9 @@ class NotificationManager {
                     });
                     
                     console.log('ServiceWorker notification shown:', title);
-                    alert(`Notification shown: ${title}`);
                     return true;
                 } catch (swError) {
                     console.error('ServiceWorker notification failed, trying fallback:', swError);
-                    alert(`ServiceWorker error: ${swError.message}. Trying fallback...`);
                     // Fall through to standard notification
                 }
             }
@@ -192,11 +177,9 @@ class NotificationManager {
                 console.log('Notification closed:', title);
             };
 
-            alert(`Standard notification shown: ${title}`);
             return notification;
         } catch (error) {
             console.error('Error showing notification:', error);
-            alert(`Failed to show notification: ${error.message}`);
             return null;
         }
     }
