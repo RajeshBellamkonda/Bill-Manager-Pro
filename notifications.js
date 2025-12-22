@@ -26,17 +26,21 @@ class NotificationManager {
 
         try {
             // Check if already registered
-            const existingRegistration = await navigator.serviceWorker.getRegistration('https://rajeshbellamkonda.github.io/Bill-Manager-Pro/');
+            const existingRegistration = await navigator.serviceWorker.getRegistration();
             
             if (existingRegistration) {
+                alert('DEBUG PWA: Using existing ServiceWorker registration');
                 console.log('Using existing ServiceWorker registration');
                 this.swRegistration = existingRegistration;
                 return existingRegistration;
             }
 
-            // Register new ServiceWorker
+            // Register new ServiceWorker with correct scope
+            alert('DEBUG PWA: Registering new ServiceWorker');
             console.log('Registering new ServiceWorker');
-            this.swRegistration = await navigator.serviceWorker.register('https://rajeshbellamkonda.github.io/Bill-Manager-Pro/service-worker.js');
+            this.swRegistration = await navigator.serviceWorker.register('https://rajeshbellamkonda.github.io/Bill-Manager-Pro/service-worker.js', {
+                scope: '/'
+            });
             
             // Wait for it to be ready
             await navigator.serviceWorker.ready;
@@ -101,6 +105,7 @@ class NotificationManager {
         try {
             // Use ServiceWorker for Android Chrome
             if (this.isChromiumOnAndroid() && 'serviceWorker' in navigator) {
+                alert('DEBUG PWA: Using ServiceWorker notification for Android Chrome');
                 console.log('Using ServiceWorker notification for Android Chrome');
                 
                 // Get or reuse existing registration
@@ -110,6 +115,7 @@ class NotificationManager {
                 const messageChannel = new MessageChannel();
 
                 if (registration.active) {
+                    alert('DEBUG PWA: Sending CONNECT message to ServiceWorker');
                     registration.active.postMessage({
                         type: 'CONNECT'
                     }, [messageChannel.port2]);
@@ -136,6 +142,7 @@ class NotificationManager {
             } 
             // Fallback to regular Notification API for other platforms
             else {
+                alert('DEBUG PWA: Using standard Notification API');
                 console.log('Using standard Notification API');
                 const notification = new Notification(title, {
                     body: options.body || '',
