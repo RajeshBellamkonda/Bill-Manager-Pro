@@ -26,6 +26,16 @@ class ChartManager {
         }
 
         const maxValue = Math.max(...data);
+        
+        // Check if all values are zero or maxValue is invalid
+        if (maxValue === 0 || !isFinite(maxValue)) {
+            ctx.font = '16px Arial';
+            ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--text-secondary') || '#666';
+            ctx.textAlign = 'center';
+            ctx.fillText('No spending data for selected period', width / 2, height / 2);
+            return;
+        }
+        
         const barWidth = (width - 60) / data.length;
         const chartHeight = height - 60;
 
@@ -455,13 +465,34 @@ class ChartManager {
         let monthsToFetch;
         if (timeRange === 'all') {
             monthsToFetch = 60;
-        } else if (timeRange === 'current') {
+        } else if (timeRange === 'current' || timeRange === 'previous' || timeRange === 'previous-2') {
             monthsToFetch = 1;
         } else {
             monthsToFetch = parseInt(timeRange);
         }
         
         let trendData = await database.getSpendingTrend(monthsToFetch, status, billName);
+        
+        // Filter for specific month if previous or previous-2 selected
+        if (timeRange === 'previous' || timeRange === 'previous-2') {
+            const now = new Date();
+            const offset = timeRange === 'previous' ? 1 : 2;
+            const targetDate = new Date(now.getFullYear(), now.getMonth() - offset, 1);
+            const targetYear = targetDate.getFullYear();
+            const targetMonth = targetDate.getMonth();
+            
+            trendData = trendData.filter(d => {
+                const [year, month] = d.monthKey.split('-');
+                return parseInt(year) === targetYear && parseInt(month) - 1 === targetMonth;
+            });
+            
+            // If no data, create empty data point
+            if (trendData.length === 0) {
+                const monthKey = `${targetYear}-${String(targetMonth + 1).padStart(2, '0')}`;
+                const monthName = targetDate.toLocaleDateString('en-US', { month: 'short', year: '2-digit' });
+                trendData = [{ month: monthName, amount: 0, monthKey: monthKey }];
+            }
+        }
         
         // Apply category filter if needed
         if (category !== 'all') {
@@ -500,22 +531,31 @@ class ChartManager {
             const timeRange = filters.timeRange || 'current';
             const now = new Date();
             
-            // Determine how many months to iterate
-            let monthsToIterate;
-            if (timeRange === 'all') {
-                monthsToIterate = 60;
-            } else if (timeRange === 'current') {
-                monthsToIterate = 1;
+            // Handle specific month filters (previous, previous-2)
+            if (timeRange === 'previous') {
+                const targetDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                categories = await database.getSpendingByCategory(targetDate.getFullYear(), targetDate.getMonth(), status, billName);
+            } else if (timeRange === 'previous-2') {
+                const targetDate = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+                categories = await database.getSpendingByCategory(targetDate.getFullYear(), targetDate.getMonth(), status, billName);
             } else {
-                monthsToIterate = parseInt(timeRange);
-            }
-            
-            for (let i = 0; i < monthsToIterate; i++) {
-                const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-                const monthCategories = await database.getSpendingByCategory(date.getFullYear(), date.getMonth(), status, billName);
+                // Determine how many months to iterate
+                let monthsToIterate;
+                if (timeRange === 'all') {
+                    monthsToIterate = 60;
+                } else if (timeRange === 'current') {
+                    monthsToIterate = 1;
+                } else {
+                    monthsToIterate = parseInt(timeRange);
+                }
                 
-                for (const [cat, amount] of Object.entries(monthCategories)) {
-                    categories[cat] = (categories[cat] || 0) + amount;
+                for (let i = 0; i < monthsToIterate; i++) {
+                    const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
+                    const monthCategories = await database.getSpendingByCategory(date.getFullYear(), date.getMonth(), status, billName);
+                    
+                    for (const [cat, amount] of Object.entries(monthCategories)) {
+                        categories[cat] = (categories[cat] || 0) + amount;
+                    }
                 }
             }
         }
