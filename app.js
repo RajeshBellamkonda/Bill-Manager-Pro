@@ -1155,6 +1155,9 @@ class BillManagerApp {
 
         // Load category filter dropdown
         await this.loadAnalyticsCategoryFilter();
+        
+        // Load time range dropdown with month names
+        await this.loadAnalyticsTimeRangeFilter();
 
         // Setup filter event listeners
         this.setupAnalyticsFilters();
@@ -1182,6 +1185,38 @@ class BillManagerApp {
         }
     }
 
+    async loadAnalyticsTimeRangeFilter() {
+        const now = new Date();
+        const timeRangeSelect = document.getElementById('analyticsTimeRange');
+        
+        // Get current month name
+        const currentMonthName = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        
+        // Get previous month name
+        const previousMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+        const previousMonthName = previousMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        
+        // Get 2 months ago name
+        const twoMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+        const twoMonthsAgoName = twoMonthsAgo.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+        
+        timeRangeSelect.innerHTML = `
+            <option value="current">${currentMonthName}</option>
+            <option value="previous">${previousMonthName}</option>
+            <option value="previous-2">${twoMonthsAgoName}</option>
+            <option value="3">Last 3 Months</option>
+            <option value="6">Last 6 Months</option>
+            <option value="12">Last 12 Months</option>
+            <option value="24">Last 24 Months</option>
+            <option value="all">All Time</option>
+        `;
+        
+        // Restore selected time range if any
+        if (this.analyticsFilters.timeRange) {
+            timeRangeSelect.value = this.analyticsFilters.timeRange;
+        }
+    }
+
     setupAnalyticsFilters() {
         const timeRangeSelect = document.getElementById('analyticsTimeRange');
         const categoryFilter = document.getElementById('analyticsCategoryFilter');
@@ -1205,7 +1240,7 @@ class BillManagerApp {
 
         timeRange.addEventListener('change', async (e) => {
             const value = e.target.value;
-            if (value === 'all' || value === 'current') {
+            if (value === 'all' || value === 'current' || value === 'previous' || value === 'previous-2') {
                 this.analyticsFilters.timeRange = value;
             } else {
                 this.analyticsFilters.timeRange = parseInt(value);
@@ -1282,8 +1317,19 @@ class BillManagerApp {
             filters.push(`📅 ${this.analyticsFilters.selectedMonth}`);
         } else {
             const timeRange = this.analyticsFilters.timeRange;
+            const now = new Date();
+            
             if (timeRange === 'current') {
-                filters.push(`📅 Current Month`);
+                const currentMonthName = now.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                filters.push(`📅 ${currentMonthName}`);
+            } else if (timeRange === 'previous') {
+                const previousMonth = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+                const previousMonthName = previousMonth.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                filters.push(`📅 ${previousMonthName}`);
+            } else if (timeRange === 'previous-2') {
+                const twoMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+                const twoMonthsAgoName = twoMonthsAgo.toLocaleDateString('en-US', { month: 'long', year: 'numeric' });
+                filters.push(`📅 ${twoMonthsAgoName}`);
             } else if (timeRange !== 'all') {
                 filters.push(`📊 Last ${timeRange} months`);
             }
@@ -1342,6 +1388,26 @@ class BillManagerApp {
             bills = bills.filter(b => {
                 const date = new Date(b.dueDate);
                 return date.getFullYear() === currentYear && date.getMonth() === currentMonth;
+            });
+        } else if (this.analyticsFilters.timeRange === 'previous') {
+            // Previous month only
+            const now = new Date();
+            const previousDate = new Date(now.getFullYear(), now.getMonth() - 1, 1);
+            const previousYear = previousDate.getFullYear();
+            const previousMonth = previousDate.getMonth();
+            bills = bills.filter(b => {
+                const date = new Date(b.dueDate);
+                return date.getFullYear() === previousYear && date.getMonth() === previousMonth;
+            });
+        } else if (this.analyticsFilters.timeRange === 'previous-2') {
+            // 2 months ago only
+            const now = new Date();
+            const twoMonthsAgo = new Date(now.getFullYear(), now.getMonth() - 2, 1);
+            const targetYear = twoMonthsAgo.getFullYear();
+            const targetMonth = twoMonthsAgo.getMonth();
+            bills = bills.filter(b => {
+                const date = new Date(b.dueDate);
+                return date.getFullYear() === targetYear && date.getMonth() === targetMonth;
             });
         } else if (this.analyticsFilters.timeRange !== 'all') {
             const now = new Date();
