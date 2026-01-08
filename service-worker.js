@@ -110,8 +110,8 @@ self.addEventListener('push', (event) => {
   const title = data.title || 'Bill Reminder';
   const options = {
     body: data.body || 'You have a bill due soon',
-    icon: '/fav-icon.png',
-    badge: '/fav-icon.png',
+    icon: 'https://rajeshbellamkonda.github.io/Bill-Manager-Pro/fav-icon.png',
+    badge: 'https://rajeshbellamkonda.github.io/Bill-Manager-Pro/fav-icon.png',
     vibrate: [200, 100, 200],
     tag: 'bill-reminder',
     requireInteraction: true,

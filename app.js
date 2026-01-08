@@ -685,11 +685,28 @@ class BillManagerApp {
             document.getElementById('billAmount').value = bill.amount;
             document.getElementById('billDate').value = bill.dueDate;
             document.getElementById('billFrequency').value = bill.frequency;
-            document.getElementById('billCategory').value = bill.category;
             document.getElementById('billNotes').value = bill.notes;
             document.getElementById('reminderDays').value = bill.reminderDays;
             document.getElementById('isCredit').checked = bill.isCredit || false;
             document.getElementById('formTitle').textContent = 'Edit Bill';
+            
+            // Set category after DOM update to ensure dropdown is rendered
+            requestAnimationFrame(() => {
+                const categorySelect = document.getElementById('billCategory');
+                if (categorySelect && bill.category) {
+                    categorySelect.value = bill.category;
+                    // If value didn't set, try to find matching option
+                    if (!categorySelect.value && bill.category) {
+                        const matchingOption = Array.from(categorySelect.options).find(
+                            opt => opt.value.trim() === bill.category.trim()
+                        );
+                        if (matchingOption) {
+                            categorySelect.value = matchingOption.value;
+                            console.log('Set using trimmed match');
+                        }
+                    }
+                }
+            });
             
             // Switch to form tab
             this.switchTab('add-bill');
