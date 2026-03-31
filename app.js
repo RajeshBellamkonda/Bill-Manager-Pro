@@ -327,6 +327,7 @@ class BillManagerApp {
     }
 
     navigateMonth(direction) {
+        this.currentMonth.setDate(1);
         this.currentMonth.setMonth(this.currentMonth.getMonth() + direction);
         this.loadTimeline();
     }
@@ -980,6 +981,24 @@ class BillManagerApp {
                 </div>
             `;
             templateSelect.innerHTML = '<option value="">No templates available</option>';
+        }
+
+        // Populate source month dropdown with past 12 months (always, even with no templates)
+        const sourceMonth = document.getElementById('sourceMonth');
+        const sourceMonths = [];
+        for (let i = 11; i >= 0; i--) {
+            const date = new Date();
+            date.setDate(1);
+            date.setMonth(date.getMonth() - i);
+            sourceMonths.push({
+                value: `${date.getFullYear()}-${date.getMonth()}`,
+                label: date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
+            });
+        }
+        sourceMonth.innerHTML = '<option value="">Select source month</option>' +
+            sourceMonths.map(m => `<option value="${m.value}">${m.label}</option>`).join('');
+
+        if (templates.length === 0) {
             return;
         }
 
@@ -997,7 +1016,11 @@ class BillManagerApp {
                     </div>
                 </div>
                 <div class="template-bills">
-                    ${template.bills.map(b => `<div>• ${b.name} - ${this.currencySymbol}${b.amount.toFixed(2)}</div>`).join('')}
+                    ${template.bills.map(b => {
+                        const day = b.dayOfMonth || 1;
+                        const suffix = day === 1 || day === 21 || day === 31 ? 'st' : day === 2 || day === 22 ? 'nd' : day === 3 || day === 23 ? 'rd' : 'th';
+                        return `<div>${day}${suffix} → ${b.name} :  ${b.isCredit ? '+' : ''}${this.currencySymbol}${b.amount.toFixed(2)}${b.isCredit ? '  💰 Credit' : ''}</div>`;
+                    }).join('')}
                 </div>
             </div>
         `).join('');
@@ -1006,25 +1029,12 @@ class BillManagerApp {
         templateSelect.innerHTML = '<option value="">Select a template</option>' + 
             templates.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
 
-        // Populate source month dropdown with past 12 months
-        const sourceMonth = document.getElementById('sourceMonth');
-        const sourceMonths = [];
-        for (let i = 11; i >= 0; i--) {  // Start from 11 months ago to current month
-            const date = new Date();
-            date.setMonth(date.getMonth() - i);
-            sourceMonths.push({
-                value: `${date.getFullYear()}-${date.getMonth()}`,
-                label: date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
-            });
-        }
-        sourceMonth.innerHTML = '<option value="">Select source month</option>' +
-            sourceMonths.map(m => `<option value="${m.value}">${m.label}</option>`).join('');
-
         // Update month select - start from next month, not current month
         const targetMonth = document.getElementById('targetMonth');
         const months = [];
         for (let i = 1; i < 13; i++) {  // Changed from i = 0 to i = 1 to skip current month
             const date = new Date();
+            date.setDate(1);
             date.setMonth(date.getMonth() + i);
             months.push({
                 value: `${date.getFullYear()}-${date.getMonth()}`,
@@ -1055,24 +1065,156 @@ class BillManagerApp {
                 return;
             }
 
-            // Prompt for new template name
-            const newName = prompt('Edit template name:', template.name);
-            if (!newName || newName.trim() === '') {
-                return; // User cancelled or entered empty name
-            }
+            this._editingTemplateId = id;
+            this._editingTemplateBills = JSON.parse(JSON.stringify(template.bills));
 
-            // Update the template name
-            template.name = newName.trim();
-            
-            // Save the updated template
-            await database.updateTemplate(id, template);
-            await this.loadTemplates();
-            
-            alert('Template updated successfully!');
+            // Populate modal
+            document.getElementById('editTemplateName').value = template.name;
+            await this.renderEditTemplateBills();
+
+            // Show modal
+            const modal = document.getElementById('editTemplateModal');
+            modal.style.display = 'flex';
+
+            // Set up event listeners (remove old ones first)
+            const closeBtn = document.getElementById('closeEditTemplateModal');
+            const cancelBtn = document.getElementById('cancelEditTemplateBtn');
+            const saveBtn = document.getElementById('saveEditTemplateBtn');
+            const addBillBtn = document.getElementById('addTemplateBillBtn');
+
+            const closeModal = () => { modal.style.display = 'none'; };
+
+            closeBtn.onclick = closeModal;
+            cancelBtn.onclick = closeModal;
+            modal.onclick = (e) => { if (e.target === modal) closeModal(); };
+
+            addBillBtn.onclick = () => {
+                this._editingTemplateBills.push({
+                    name: '', amount: 0, frequency: 'monthly', category: '',
+                    notes: '', reminderDays: 3, isCredit: false, dayOfMonth: 1
+                });
+                this.renderEditTemplateBills();
+            };
+
+            saveBtn.onclick = async () => {
+                const newName = document.getElementById('editTemplateName').value.trim();
+                if (!newName) {
+                    alert('Please enter a template name');
+                    return;
+                }
+
+                // Read current bill values from the form
+                this.collectEditTemplateBillValues();
+
+                // Filter out bills with no name
+                const validBills = this._editingTemplateBills.filter(b => b.name.trim() !== '');
+                if (validBills.length === 0) {
+                    alert('Template must have at least one bill');
+                    return;
+                }
+
+                template.name = newName;
+                template.bills = validBills;
+
+                await database.updateTemplate(id, template);
+                await this.loadTemplates();
+                closeModal();
+                alert('Template updated successfully!');
+            };
         } catch (error) {
             console.error('Error editing template:', error);
             alert('Error editing template. Please try again.');
         }
+    }
+
+    async renderEditTemplateBills() {
+        const categories = await database.getCategories();
+        const container = document.getElementById('editTemplateBills');
+        const categoryOptions = '<option value="">None</option>' +
+            categories.map(cat => `<option value="${cat}">${cat}</option>`).join('');
+
+        container.innerHTML = this._editingTemplateBills.map((bill, i) => `
+            <div class="edit-template-bill-item" data-index="${i}">
+                <div class="bill-item-header">
+                    <strong>Bill #${i + 1}</strong>
+                    <button type="button" class="btn-remove-bill" onclick="app.removeEditTemplateBill(${i})" title="Remove bill">&times;</button>
+                </div>
+                <div class="edit-template-bill-fields">
+                    <div class="form-group">
+                        <label>Name *</label>
+                        <input type="text" data-field="name" value="${this.escapeHtml(bill.name)}">
+                    </div>
+                    <div class="form-group">
+                        <label>Amount *</label>
+                        <input type="number" data-field="amount" step="0.01" min="0" value="${bill.amount}">
+                    </div>
+                    <div class="form-group">
+                        <label>Day of Month</label>
+                        <input type="number" data-field="dayOfMonth" min="1" max="31" value="${bill.dayOfMonth || 1}">
+                    </div>
+                    <div class="form-group">
+                        <label>Frequency</label>
+                        <select data-field="frequency">
+                            <option value="once" ${bill.frequency === 'once' ? 'selected' : ''}>One-time</option>
+                            <option value="weekly" ${bill.frequency === 'weekly' ? 'selected' : ''}>Weekly</option>
+                            <option value="bi-weekly" ${bill.frequency === 'bi-weekly' ? 'selected' : ''}>Bi-weekly</option>
+                            <option value="monthly" ${bill.frequency === 'monthly' ? 'selected' : ''}>Monthly</option>
+                            <option value="quarterly" ${bill.frequency === 'quarterly' ? 'selected' : ''}>Quarterly</option>
+                            <option value="yearly" ${bill.frequency === 'yearly' ? 'selected' : ''}>Yearly</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Category</label>
+                        <select data-field="category">
+                            ${categoryOptions.replace(`value="${this.escapeHtml(bill.category)}"`, `value="${this.escapeHtml(bill.category)}" selected`)}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Reminder (days before)</label>
+                        <input type="number" data-field="reminderDays" min="0" max="30" value="${bill.reminderDays || 0}">
+                    </div>
+                    <div class="form-group" style="grid-column: 1 / -1;">
+                        <label>Notes</label>
+                        <textarea data-field="notes" rows="2">${this.escapeHtml(bill.notes || '')}</textarea>
+                    </div>
+                    <div class="form-group">
+                        <label class="checkbox-label">
+                            <input type="checkbox" data-field="isCredit" ${bill.isCredit ? 'checked' : ''}>
+                            <span>Credit (income)</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        `).join('');
+    }
+
+    collectEditTemplateBillValues() {
+        const items = document.querySelectorAll('.edit-template-bill-item');
+        items.forEach((item, i) => {
+            if (i >= this._editingTemplateBills.length) return;
+            const bill = this._editingTemplateBills[i];
+            bill.name = item.querySelector('[data-field="name"]').value;
+            bill.amount = parseFloat(item.querySelector('[data-field="amount"]').value) || 0;
+            bill.dayOfMonth = parseInt(item.querySelector('[data-field="dayOfMonth"]').value) || 1;
+            bill.frequency = item.querySelector('[data-field="frequency"]').value;
+            bill.category = item.querySelector('[data-field="category"]').value;
+            bill.reminderDays = parseInt(item.querySelector('[data-field="reminderDays"]').value) || 0;
+            bill.notes = item.querySelector('[data-field="notes"]').value;
+            bill.isCredit = item.querySelector('[data-field="isCredit"]').checked;
+        });
+    }
+
+    removeEditTemplateBill(index) {
+        this.collectEditTemplateBillValues();
+        this._editingTemplateBills.splice(index, 1);
+        this.renderEditTemplateBills();
+    }
+
+    escapeHtml(str) {
+        if (!str) return '';
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
     }
 
     async applyTemplate() {

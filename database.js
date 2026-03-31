@@ -234,6 +234,7 @@ class BillDatabase {
                 category: bill.category,
                 notes: bill.notes,
                 reminderDays: bill.reminderDays,
+                isCredit: bill.isCredit || false,
                 dayOfMonth: new Date(bill.dueDate).getDate()
             })),
             profileId: this.currentProfile,
@@ -321,6 +322,7 @@ class BillDatabase {
                 category: billTemplate.category,
                 notes: billTemplate.notes,
                 reminderDays: billTemplate.reminderDays,
+                isCredit: billTemplate.isCredit || false,
                 status: 'pending',
                 isPaid: false
             };
