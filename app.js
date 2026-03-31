@@ -983,18 +983,20 @@ class BillManagerApp {
             templateSelect.innerHTML = '<option value="">No templates available</option>';
         }
 
-        // Populate source month dropdown with past 12 months (always, even with no templates)
+        // Populate source month dropdown from months that have bill data
         const sourceMonth = document.getElementById('sourceMonth');
-        const sourceMonths = [];
-        for (let i = 11; i >= 0; i--) {
-            const date = new Date();
-            date.setDate(1);
-            date.setMonth(date.getMonth() - i);
-            sourceMonths.push({
-                value: `${date.getFullYear()}-${date.getMonth()}`,
-                label: date.toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
-            });
+        const allBills = await database.getAllBills();
+        const monthSet = new Set();
+        for (const bill of allBills) {
+            const d = new Date(bill.dueDate + 'T00:00:00');
+            monthSet.add(`${d.getFullYear()}-${d.getMonth()}`);
         }
+        const sourceMonths = Array.from(monthSet)
+            .map(v => {
+                const [y, m] = v.split('-').map(Number);
+                return { value: v, year: y, month: m, label: new Date(y, m).toLocaleDateString('en-US', { month: 'long', year: 'numeric' }) };
+            })
+            .sort((a, b) => a.year - b.year || a.month - b.month);
         sourceMonth.innerHTML = '<option value="">Select source month</option>' +
             sourceMonths.map(m => `<option value="${m.value}">${m.label}</option>`).join('');
 
@@ -1016,7 +1018,7 @@ class BillManagerApp {
                     </div>
                 </div>
                 <div class="template-bills">
-                    ${template.bills.map(b => {
+                    ${[...template.bills].sort((a, b) => (a.dayOfMonth || 1) - (b.dayOfMonth || 1)).map(b => {
                         const day = b.dayOfMonth || 1;
                         const suffix = day === 1 || day === 21 || day === 31 ? 'st' : day === 2 || day === 22 ? 'nd' : day === 3 || day === 23 ? 'rd' : 'th';
                         return `<div>${day}${suffix} → ${b.name} :  ${b.isCredit ? '+' : ''}${this.currencySymbol}${b.amount.toFixed(2)}${b.isCredit ? '  💰 Credit' : ''}</div>`;
@@ -1067,6 +1069,7 @@ class BillManagerApp {
 
             this._editingTemplateId = id;
             this._editingTemplateBills = JSON.parse(JSON.stringify(template.bills));
+            this._editingTemplateBills.sort((a, b) => (a.dayOfMonth || 1) - (b.dayOfMonth || 1));
 
             // Populate modal
             document.getElementById('editTemplateName').value = template.name;

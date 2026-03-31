@@ -311,13 +311,15 @@ class BillDatabase {
 
         // Add bills from template
         const addedBills = [];
+        const daysInMonth = new Date(year, month + 1, 0).getDate();
         for (const billTemplate of template.bills) {
-            const dueDate = new Date(year, month, billTemplate.dayOfMonth);
+            const day = Math.min(billTemplate.dayOfMonth, daysInMonth);
+            const dueDate = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
             
             const newBill = {
                 name: billTemplate.name,
                 amount: billTemplate.amount,
-                dueDate: dueDate.toISOString().split('T')[0],
+                dueDate: dueDate,
                 frequency: billTemplate.frequency,
                 category: billTemplate.category,
                 notes: billTemplate.notes,
