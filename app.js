@@ -1031,10 +1031,10 @@ class BillManagerApp {
         templateSelect.innerHTML = '<option value="">Select a template</option>' + 
             templates.map(t => `<option value="${t.id}">${t.name}</option>`).join('');
 
-        // Update month select - start from next month, not current month
+        // Update month select - include current month
         const targetMonth = document.getElementById('targetMonth');
         const months = [];
-        for (let i = 1; i < 13; i++) {  // Changed from i = 0 to i = 1 to skip current month
+        for (let i = 0; i < 13; i++) {
             const date = new Date();
             date.setDate(1);
             date.setMonth(date.getMonth() + i);
