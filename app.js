@@ -163,6 +163,9 @@ class BillManagerApp {
         document.getElementById('prevMonth').addEventListener('click', () => this.navigateMonth(-1));
         document.getElementById('nextMonth').addEventListener('click', () => this.navigateMonth(1));
 
+        // Swipe gesture navigation on the timeline tab
+        this.initTimelineSwipe();
+
         // Bill form
         document.getElementById('billForm').addEventListener('submit', (e) => this.saveBill(e));
         document.getElementById('cancelBtn').addEventListener('click', () => this.cancelEdit());
@@ -330,6 +333,26 @@ class BillManagerApp {
         this.currentMonth.setDate(1);
         this.currentMonth.setMonth(this.currentMonth.getMonth() + direction);
         this.loadTimeline();
+    }
+
+    initTimelineSwipe() {
+        const el = document.getElementById('timeline-tab');
+        let startX = 0;
+        let startY = 0;
+
+        el.addEventListener('touchstart', (e) => {
+            startX = e.touches[0].clientX;
+            startY = e.touches[0].clientY;
+        }, { passive: true });
+
+        el.addEventListener('touchend', (e) => {
+            const dx = e.changedTouches[0].clientX - startX;
+            const dy = e.changedTouches[0].clientY - startY;
+            // Only trigger if horizontal swipe is dominant and long enough
+            if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
+                this.navigateMonth(dx < 0 ? 1 : -1);
+            }
+        }, { passive: true });
     }
 
     async loadTimeline() {
