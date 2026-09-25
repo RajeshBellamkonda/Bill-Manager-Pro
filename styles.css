@@ -1103,6 +1103,13 @@ header h1 {
     white-space: nowrap;
 }
 
+.bill-updated-date {
+    font-size: 0.72rem;
+    color: var(--text-muted, #999);
+    white-space: nowrap;
+    text-align: right;
+}
+
 .bill-actions-row {
     padding-top: 12px;
     border-top: 1px solid rgba(0, 0, 0, 0.06);

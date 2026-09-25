@@ -343,8 +343,38 @@ class BillManagerApp {
         // Load monthly credit (profile-specific)
         const profileId = database.getCurrentProfile();
         const creditKey = `monthlyCredit_${profileId}_${year}_${month}`;
-        const savedCredit = await database.getSetting(creditKey);
-        document.getElementById('monthlyCredit').value = savedCredit || '';
+        let savedCredit = await database.getSetting(creditKey);
+
+        // If no credit set for this month, carry forward remaining balance from previous month
+        if (savedCredit === null) {
+            const prevDate = new Date(year, month - 1, 1);
+            const prevYear = prevDate.getFullYear();
+            const prevMonth = prevDate.getMonth();
+            const prevCreditKey = `monthlyCredit_${profileId}_${prevYear}_${prevMonth}`;
+            const prevCredit = parseFloat(await database.getSetting(prevCreditKey)) || 0;
+
+            if (prevCredit > 0) {
+                const prevBills = await database.getBillsByMonth(prevYear, prevMonth);
+                const sortedPrevBills = prevBills.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
+
+                let carryforward = prevCredit;
+                for (const bill of sortedPrevBills) {
+                    const amt = typeof bill.amount === 'number' ? bill.amount : parseFloat(bill.amount) || 0;
+                    if (bill.isCredit) {
+                        carryforward += amt;
+                    } else {
+                        carryforward = Math.max(0, carryforward - amt);
+                    }
+                }
+
+                if (carryforward > 0) {
+                    savedCredit = carryforward;
+                    await database.saveSetting(creditKey, savedCredit);
+                }
+            }
+        }
+
+        document.getElementById('monthlyCredit').value = savedCredit ? parseFloat(savedCredit).toFixed(2) : '';
 
         // Get bills for this month
         this.allBills = await database.getBillsByMonth(year, month);
@@ -584,6 +614,7 @@ class BillManagerApp {
                     <div class="bill-amount-section">
                         <div class="bill-amount ${isCredit ? 'credit-amount' : ''}">${isCredit ? '+' : ''}${this.currencySymbol}${amount.toFixed(2)}</div>
                         ${isCredit ? '<span class="status-badge status-credit">💵 Credit</span>' : statusBadge}
+                        ${bill.lastModified && bill.lastModified !== bill.createdAt ? `<div class="bill-updated-date">Updated ${new Date(bill.lastModified).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}</div>` : ''}
                     </div>
                 </div>
                 <div class="bill-card-row bill-actions-row">
