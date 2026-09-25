@@ -716,8 +716,9 @@ class BillManagerApp {
             
             // Switch to timeline and reload
             this.switchTab('timeline');
+            await this.propagateCreditToNextMonth(this.currentMonth.getFullYear(), this.currentMonth.getMonth());
             await this.loadTimeline();
-            
+
             alert('Bill saved successfully!');
         } catch (error) {
             console.error('Error saving bill:', error);
@@ -783,6 +784,7 @@ class BillManagerApp {
 
         try {
             await database.deleteBill(id);
+            await this.propagateCreditToNextMonth(this.currentMonth.getFullYear(), this.currentMonth.getMonth());
             await this.loadTimeline();
         } catch (error) {
             console.error('Error deleting bill:', error);
