@@ -193,6 +193,11 @@ class BillManagerApp {
             }
         });
 
+        // Firebase config
+        document.getElementById('saveFirebaseConfigBtn').addEventListener('click', () => this.saveFirebaseConfig());
+        document.getElementById('testFirebaseBtn').addEventListener('click', () => this.testFirebaseConnection());
+        document.getElementById('clearFirebaseConfigBtn').addEventListener('click', () => this.clearFirebaseConfig());
+
         // Profile management
         document.getElementById('profileSelect').addEventListener('change', (e) => this.switchProfile(e.target.value));
         document.getElementById('createProfileBtn').addEventListener('click', () => this.createNewProfile());
@@ -706,6 +711,7 @@ class BillManagerApp {
 
         try {
             if (this.editingBillId) {
+                await firebaseManager.unscheduleBillNotifications(this.editingBillId);
                 await database.updateBill(this.editingBillId, billData);
                 this.editingBillId = null;
             } else {
@@ -716,7 +722,11 @@ class BillManagerApp {
             document.getElementById('billForm').reset();
             document.getElementById('billId').value = '';
             document.getElementById('formTitle').textContent = 'Add New Bill';
-            
+
+            // Reschedule Firebase notifications for all bills
+            const allBills = await database.getAllBills();
+            await firebaseManager.scheduleMonthlyNotifications(allBills);
+
             // Switch to timeline and reload
             this.switchTab('timeline');
             await this.loadTimeline();
@@ -785,6 +795,7 @@ class BillManagerApp {
         if (!confirm('Are you sure you want to delete this bill?')) return;
 
         try {
+            await firebaseManager.unscheduleBillNotifications(id);
             await database.deleteBill(id);
             await this.loadTimeline();
         } catch (error) {
@@ -1823,6 +1834,22 @@ class BillManagerApp {
         // Load categories
         await this.loadCategoriesList();
         await this.loadCategoryDropdown();
+
+        // Load Firebase config
+        const firebaseConfig = await database.getSetting('firebaseConfig');
+        const firebaseVapidKey = await database.getSetting('firebaseVapidKey');
+        if (firebaseConfig) {
+            document.getElementById('firebaseApiKey').value = firebaseConfig.apiKey || '';
+            document.getElementById('firebaseAuthDomain').value = firebaseConfig.authDomain || '';
+            document.getElementById('firebaseProjectId').value = firebaseConfig.projectId || '';
+            document.getElementById('firebaseStorageBucket').value = firebaseConfig.storageBucket || '';
+            document.getElementById('firebaseMessagingSenderId').value = firebaseConfig.messagingSenderId || '';
+            document.getElementById('firebaseAppId').value = firebaseConfig.appId || '';
+        }
+        if (firebaseVapidKey) {
+            document.getElementById('firebaseVapidKey').value = firebaseVapidKey;
+        }
+        await this.initFirebase();
     }
 
     async loadCategoryDropdown() {
@@ -2220,6 +2247,78 @@ class BillManagerApp {
         notificationManager.stopPeriodicCheck();
 
         alert('Settings reset to defaults!');
+    }
+
+    async initFirebase() {
+        const ok = await firebaseManager.initialize();
+        this.updateFirebaseStatus();
+        if (ok) {
+            const bills = await database.getAllBills();
+            await firebaseManager.scheduleMonthlyNotifications(bills);
+        }
+    }
+
+    async saveFirebaseConfig() {
+        const config = {
+            apiKey: document.getElementById('firebaseApiKey').value.trim(),
+            authDomain: document.getElementById('firebaseAuthDomain').value.trim(),
+            projectId: document.getElementById('firebaseProjectId').value.trim(),
+            storageBucket: document.getElementById('firebaseStorageBucket').value.trim(),
+            messagingSenderId: document.getElementById('firebaseMessagingSenderId').value.trim(),
+            appId: document.getElementById('firebaseAppId').value.trim()
+        };
+        const vapidKey = document.getElementById('firebaseVapidKey').value.trim();
+
+        if (!config.apiKey || !config.projectId || !config.messagingSenderId || !vapidKey) {
+            alert('API Key, Project ID, Messaging Sender ID, and VAPID Key are required.');
+            return;
+        }
+
+        await database.saveSetting('firebaseConfig', config);
+        await database.saveSetting('firebaseVapidKey', vapidKey);
+
+        await firebaseManager.clear();
+        await this.initFirebase();
+
+        alert('Firebase configuration saved!');
+    }
+
+    async testFirebaseConnection() {
+        const statusEl = document.getElementById('firebaseStatusText');
+        statusEl.textContent = 'Status: Testing connection...';
+
+        const result = await firebaseManager.testConnection();
+        statusEl.textContent = `Status: ${result.message}`;
+        statusEl.style.color = result.ok ? 'var(--success-color)' : 'var(--danger-color)';
+    }
+
+    async clearFirebaseConfig() {
+        if (!confirm('Clear Firebase configuration? Push notifications from Firebase will stop working.')) return;
+
+        await database.saveSetting('firebaseConfig', null);
+        await database.saveSetting('firebaseVapidKey', null);
+        await database.saveSetting('fcmToken', null);
+        await firebaseManager.clear();
+
+        ['firebaseApiKey', 'firebaseAuthDomain', 'firebaseProjectId',
+            'firebaseStorageBucket', 'firebaseMessagingSenderId', 'firebaseAppId',
+            'firebaseVapidKey'].forEach(id => {
+            document.getElementById(id).value = '';
+        });
+        this.updateFirebaseStatus();
+        alert('Firebase configuration cleared.');
+    }
+
+    updateFirebaseStatus() {
+        const statusEl = document.getElementById('firebaseStatusText');
+        if (!statusEl) return;
+        if (firebaseManager.initialized) {
+            statusEl.textContent = 'Status: Connected';
+            statusEl.style.color = 'var(--success-color)';
+        } else {
+            statusEl.textContent = 'Status: Not configured';
+            statusEl.style.color = '';
+        }
     }
 
     updateHeaderDateTime() {
