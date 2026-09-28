@@ -24,7 +24,10 @@ class BillManagerApp {
         // Load initial data
         await this.loadTimeline();
         await this.loadTemplates();
-        
+
+        // Initialise Firebase after core UI is ready — never blocks the timeline
+        this.initFirebase().catch(err => console.error('Firebase init error:', err));
+
         // Setup notifications
         const notificationEnabled = await database.getSetting('notificationsEnabled');
         if (notificationEnabled) {
@@ -1839,7 +1842,7 @@ class BillManagerApp {
         await this.loadCategoriesList();
         await this.loadCategoryDropdown();
 
-        // Load Firebase config
+        // Load Firebase config fields (display only — init happens after timeline loads)
         const firebaseConfig = await database.getSetting('firebaseConfig');
         const firebaseVapidKey = await database.getSetting('firebaseVapidKey');
         if (firebaseConfig) {
@@ -1853,7 +1856,6 @@ class BillManagerApp {
         if (firebaseVapidKey) {
             document.getElementById('firebaseVapidKey').value = firebaseVapidKey;
         }
-        await this.initFirebase();
     }
 
     async loadCategoryDropdown() {
