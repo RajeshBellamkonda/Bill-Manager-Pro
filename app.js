@@ -515,7 +515,7 @@ class BillManagerApp {
 
         let remainingCredit = credit;
         let html = '';
-        
+
         // Add collapsed paid bills section first
         if (paidBills.length > 0) {
             const totalLabel = paidTotal >= 0 ? `${this.currencySymbol}${paidTotal.toFixed(2)}` : `-${this.currencySymbol}${Math.abs(paidTotal).toFixed(2)}`;
@@ -535,17 +535,21 @@ class BillManagerApp {
                 </div>
             `;
         }
-        
+
         // Add unpaid bills after
         unpaidBills.forEach(bill => {
             html += this.createBillCard(bill, remainingCredit);
             const billAmount = typeof bill.amount === 'number' ? bill.amount : parseFloat(bill.amount) || 0;
             const isCredit = bill.isCredit || false;
-            // Credits add to remaining credit, expenses subtract from it
-            remainingCredit = isCredit ? remainingCredit + billAmount : Math.max(0, remainingCredit - billAmount);
+            remainingCredit = isCredit ? remainingCredit + billAmount : remainingCredit - billAmount;
         });
-        
+
         timeline.innerHTML = html;
+
+        // Write the balance after the last bill directly to next month
+        const nextDate = new Date(year, month + 1, 1);
+        const nextCreditKey = `monthlyCredit_${profileId}_${nextDate.getFullYear()}_${nextDate.getMonth()}`;
+        await database.saveSetting(nextCreditKey, remainingCredit);
     }
 
     togglePaidBills() {
@@ -715,7 +719,6 @@ class BillManagerApp {
             
             // Switch to timeline and reload
             this.switchTab('timeline');
-            await this.propagateCreditToNextMonth(this.currentMonth.getFullYear(), this.currentMonth.getMonth());
             await this.loadTimeline();
 
             alert('Bill saved successfully!');
@@ -783,7 +786,6 @@ class BillManagerApp {
 
         try {
             await database.deleteBill(id);
-            await this.propagateCreditToNextMonth(this.currentMonth.getFullYear(), this.currentMonth.getMonth());
             await this.loadTimeline();
         } catch (error) {
             console.error('Error deleting bill:', error);
@@ -830,7 +832,6 @@ class BillManagerApp {
                 }
             }
 
-            await this.propagateCreditToNextMonth(year, month);
             await this.loadTimeline();
         } catch (error) {
             console.error('Error marking bill as paid:', error);
@@ -2694,29 +2695,6 @@ class BillManagerApp {
         }
     }
 
-    async propagateCreditToNextMonth(year, month) {
-        const profileId = database.getCurrentProfile();
-        const creditKey = `monthlyCredit_${profileId}_${year}_${month}`;
-        const savedCredit = parseFloat(await database.getSetting(creditKey)) || 0;
-
-        const bills = await database.getBillsByMonth(year, month);
-        const sortedBills = bills.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
-
-        let carryforward = savedCredit;
-        for (const bill of sortedBills) {
-            const amt = typeof bill.amount === 'number' ? bill.amount : parseFloat(bill.amount) || 0;
-            if (bill.isCredit) {
-                carryforward += amt;
-            } else {
-                carryforward -= amt;
-            }
-        }
-
-        const nextDate = new Date(year, month + 1, 1);
-        const nextCreditKey = `monthlyCredit_${profileId}_${nextDate.getFullYear()}_${nextDate.getMonth()}`;
-        await database.saveSetting(nextCreditKey, carryforward);
-    }
-
     async saveMonthlyCredit() {
         const year = this.currentMonth.getFullYear();
         const month = this.currentMonth.getMonth();
@@ -2728,7 +2706,6 @@ class BillManagerApp {
 
         try {
             await database.saveSetting(creditKey, creditValue);
-            await this.propagateCreditToNextMonth(year, month);
 
             // Reload timeline to refresh bills with updated credit calculations
             await this.loadTimeline();
@@ -3001,10 +2978,9 @@ class BillManagerApp {
             html += this.createBillCard(bill, remainingCredit);
             const billAmount = typeof bill.amount === 'number' ? bill.amount : parseFloat(bill.amount) || 0;
             const isCredit = bill.isCredit || false;
-            // Credits add to remaining credit, expenses subtract from it
-            remainingCredit = isCredit ? remainingCredit + billAmount : Math.max(0, remainingCredit - billAmount);
+            remainingCredit = isCredit ? remainingCredit + billAmount : remainingCredit - billAmount;
         });
-        
+
         timeline.innerHTML = html;
     }
 }
