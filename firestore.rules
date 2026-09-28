@@ -1,0 +1,17 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Only the Cloud Function (admin SDK) reads these.
+    // The app can create/delete its own notification docs using its FCM token as proof of identity.
+    match /scheduled_notifications/{docId} {
+      allow create: if request.resource.data.token is string
+                    && request.resource.data.token.size() > 0;
+      allow delete: if resource.data.token == request.resource.data.token;
+      allow read, update: if false; // admin SDK only
+    }
+    // Temporary ping doc used by testConnection()
+    match /_connection_test/{docId} {
+      allow read, write: if true;
+    }
+  }
+}

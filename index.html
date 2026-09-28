@@ -473,6 +473,49 @@
                     </div>
                 </div>
 
+                <div class="settings-group" id="firebaseConfigGroup">
+                    <h3>Firebase Push Notifications</h3>
+                    <p class="settings-description">Configure Firebase to receive bill reminders even when the app is closed. Your config is stored locally on this device only.</p>
+                    <div class="firebase-config-form">
+                        <div class="form-group">
+                            <label for="firebaseApiKey">API Key</label>
+                            <input type="password" id="firebaseApiKey" class="settings-input" placeholder="AIza...">
+                        </div>
+                        <div class="form-group">
+                            <label for="firebaseAuthDomain">Auth Domain</label>
+                            <input type="text" id="firebaseAuthDomain" class="settings-input" placeholder="your-project.firebaseapp.com">
+                        </div>
+                        <div class="form-group">
+                            <label for="firebaseProjectId">Project ID</label>
+                            <input type="text" id="firebaseProjectId" class="settings-input" placeholder="your-project-id">
+                        </div>
+                        <div class="form-group">
+                            <label for="firebaseStorageBucket">Storage Bucket</label>
+                            <input type="text" id="firebaseStorageBucket" class="settings-input" placeholder="your-project.appspot.com">
+                        </div>
+                        <div class="form-group">
+                            <label for="firebaseMessagingSenderId">Messaging Sender ID</label>
+                            <input type="text" id="firebaseMessagingSenderId" class="settings-input" placeholder="123456789012">
+                        </div>
+                        <div class="form-group">
+                            <label for="firebaseAppId">App ID</label>
+                            <input type="text" id="firebaseAppId" class="settings-input" placeholder="1:123456789:web:abc123">
+                        </div>
+                        <div class="form-group">
+                            <label for="firebaseVapidKey">VAPID Key <span class="label-hint">(Web Push Certificate)</span></label>
+                            <input type="password" id="firebaseVapidKey" class="settings-input" placeholder="BNR...">
+                        </div>
+                        <div class="notification-status" id="firebaseStatus">
+                            <p id="firebaseStatusText">Status: Not configured</p>
+                        </div>
+                        <div class="notification-actions">
+                            <button id="saveFirebaseConfigBtn" class="btn btn-primary">Save Config</button>
+                            <button id="testFirebaseBtn" class="btn btn-secondary">Test Connection</button>
+                            <button id="clearFirebaseConfigBtn" class="btn btn-danger">Clear Config</button>
+                        </div>
+                    </div>
+                </div>
+
                 <div class="settings-actions">
                     <button id="saveSettingsBtn" class="btn btn-primary">Save Settings</button>
                     <button id="resetSettingsBtn" class="btn btn-secondary">Reset to Defaults</button>
@@ -511,9 +554,13 @@
         </div>
     </footer>
 
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-messaging-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
     <script src="pwa-handler.js"></script>
     <script src="database.js"></script>
     <script src="notifications.js"></script>
+    <script src="firebase-manager.js"></script>
     <script src="charts.js"></script>
     <script src="app.js"></script>
 </body>
