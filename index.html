@@ -478,6 +478,15 @@
                     <p class="settings-description">Configure Firebase to receive bill reminders even when the app is closed. Your config is stored locally on this device only.</p>
                     <div class="firebase-config-form">
                         <div class="form-group">
+                            <label>Upload config JSON</label>
+                            <div class="data-actions">
+                                <button id="uploadFirebaseConfigBtn" class="btn btn-secondary">📂 Choose JSON File</button>
+                                <input type="file" id="firebaseConfigFileInput" accept=".json,application/json" style="display:none;">
+                                <span id="firebaseConfigFileName" style="font-size:0.85em; opacity:0.7;"></span>
+                            </div>
+                            <p class="info-text">Expected keys: apiKey, authDomain, projectId, storageBucket, messagingSenderId, appId, wapId</p>
+                        </div>
+                        <div class="form-group">
                             <label for="firebaseApiKey">API Key</label>
                             <input type="password" id="firebaseApiKey" class="settings-input" placeholder="AIza...">
                         </div>
@@ -502,7 +511,7 @@
                             <input type="text" id="firebaseAppId" class="settings-input" placeholder="1:123456789:web:abc123">
                         </div>
                         <div class="form-group">
-                            <label for="firebaseVapidKey">VAPID Key <span class="label-hint">(Web Push Certificate)</span></label>
+                            <label for="firebaseVapidKey">VAPID Key <span class="label-hint">(wapId in JSON)</span></label>
                             <input type="password" id="firebaseVapidKey" class="settings-input" placeholder="BNR...">
                         </div>
                         <div class="notification-status" id="firebaseStatus">

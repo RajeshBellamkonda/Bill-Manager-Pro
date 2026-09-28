@@ -194,6 +194,10 @@ class BillManagerApp {
         });
 
         // Firebase config
+        document.getElementById('uploadFirebaseConfigBtn').addEventListener('click', () => {
+            document.getElementById('firebaseConfigFileInput').click();
+        });
+        document.getElementById('firebaseConfigFileInput').addEventListener('change', (e) => this.loadFirebaseConfigFromFile(e));
         document.getElementById('saveFirebaseConfigBtn').addEventListener('click', () => this.saveFirebaseConfig());
         document.getElementById('testFirebaseBtn').addEventListener('click', () => this.testFirebaseConnection());
         document.getElementById('clearFirebaseConfigBtn').addEventListener('click', () => this.clearFirebaseConfig());
@@ -2258,6 +2262,39 @@ class BillManagerApp {
         }
     }
 
+    loadFirebaseConfigFromFile(event) {
+        const file = event.target.files[0];
+        if (!file) return;
+
+        const reader = new FileReader();
+        reader.onload = (e) => {
+            try {
+                // Strip JS-style comments and trailing commas so plain JS object literals parse too
+                const cleaned = e.target.result
+                    .replace(/\/\/.*$/gm, '')
+                    .replace(/,\s*([}\]])/g, '$1');
+                const config = JSON.parse(cleaned);
+
+                if (config.apiKey) document.getElementById('firebaseApiKey').value = config.apiKey;
+                if (config.authDomain) document.getElementById('firebaseAuthDomain').value = config.authDomain;
+                if (config.projectId) document.getElementById('firebaseProjectId').value = config.projectId;
+                if (config.storageBucket) document.getElementById('firebaseStorageBucket').value = config.storageBucket;
+                if (config.messagingSenderId) document.getElementById('firebaseMessagingSenderId').value = config.messagingSenderId;
+                if (config.appId) document.getElementById('firebaseAppId').value = config.appId;
+                if (config.wapId) document.getElementById('firebaseVapidKey').value = config.wapId;
+
+                document.getElementById('firebaseConfigFileName').textContent = file.name;
+                const statusEl = document.getElementById('firebaseStatusText');
+                statusEl.textContent = 'Status: Config loaded — click Save Config to apply';
+                statusEl.style.color = '';
+            } catch (err) {
+                alert(`Could not parse JSON file: ${err.message}`);
+            }
+        };
+        reader.readAsText(file);
+        event.target.value = ''; // reset so the same file can be re-selected
+    }
+
     async saveFirebaseConfig() {
         const config = {
             apiKey: document.getElementById('firebaseApiKey').value.trim(),
@@ -2305,6 +2342,7 @@ class BillManagerApp {
             'firebaseVapidKey'].forEach(id => {
             document.getElementById(id).value = '';
         });
+        document.getElementById('firebaseConfigFileName').textContent = '';
         this.updateFirebaseStatus();
         alert('Firebase configuration cleared.');
     }
