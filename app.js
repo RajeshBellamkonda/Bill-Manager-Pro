@@ -374,9 +374,10 @@ class BillManagerApp {
             const prevYear = prevDate.getFullYear();
             const prevMonth = prevDate.getMonth();
             const prevCreditKey = `monthlyCredit_${profileId}_${prevYear}_${prevMonth}`;
-            const prevCredit = parseFloat(await database.getSetting(prevCreditKey)) || 0;
+            const prevSavedCredit = await database.getSetting(prevCreditKey);
 
-            if (prevCredit > 0) {
+            if (prevSavedCredit !== null) {
+                const prevCredit = parseFloat(prevSavedCredit) || 0;
                 const prevBills = await database.getBillsByMonth(prevYear, prevMonth);
                 const sortedPrevBills = prevBills.sort((a, b) => new Date(a.dueDate) - new Date(b.dueDate));
 
@@ -386,18 +387,16 @@ class BillManagerApp {
                     if (bill.isCredit) {
                         carryforward += amt;
                     } else {
-                        carryforward = Math.max(0, carryforward - amt);
+                        carryforward -= amt;
                     }
                 }
 
-                if (carryforward > 0) {
-                    savedCredit = carryforward;
-                    await database.saveSetting(creditKey, savedCredit);
-                }
+                savedCredit = carryforward;
+                await database.saveSetting(creditKey, savedCredit);
             }
         }
 
-        document.getElementById('monthlyCredit').value = savedCredit ? parseFloat(savedCredit).toFixed(2) : '';
+        document.getElementById('monthlyCredit').value = savedCredit !== null ? parseFloat(savedCredit).toFixed(2) : '';
 
         // Get bills for this month
         this.allBills = await database.getBillsByMonth(year, month);
@@ -2709,13 +2708,13 @@ class BillManagerApp {
             if (bill.isCredit) {
                 carryforward += amt;
             } else {
-                carryforward = Math.max(0, carryforward - amt);
+                carryforward -= amt;
             }
         }
 
         const nextDate = new Date(year, month + 1, 1);
         const nextCreditKey = `monthlyCredit_${profileId}_${nextDate.getFullYear()}_${nextDate.getMonth()}`;
-        await database.saveSetting(nextCreditKey, carryforward > 0 ? carryforward : 0);
+        await database.saveSetting(nextCreditKey, carryforward);
     }
 
     async saveMonthlyCredit() {
