@@ -730,7 +730,7 @@ class BillManagerApp {
             }
         } catch (error) {
             console.error('Error saving bill:', error);
-            alert('Error saving bill. Please try again.');
+            alert(`Error saving bill: ${error?.message || error}\n\nStack: ${error?.stack || 'n/a'}`);
             return;
         }
 
