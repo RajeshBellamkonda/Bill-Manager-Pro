@@ -722,7 +722,7 @@ class BillManagerApp {
 
         try {
             if (this.editingBillId) {
-                await firebaseManager.unscheduleBillNotifications(this.editingBillId);
+                await this._unscheduleFirebaseIfEnabled(this.editingBillId);
                 await database.updateBill(this.editingBillId, billData);
                 this.editingBillId = null;
             } else {
@@ -806,7 +806,7 @@ class BillManagerApp {
         if (!confirm('Are you sure you want to delete this bill?')) return;
 
         try {
-            await firebaseManager.unscheduleBillNotifications(id);
+            await this._unscheduleFirebaseIfEnabled(id);
             await database.deleteBill(id);
             await this.loadTimeline();
         } catch (error) {
@@ -2289,6 +2289,16 @@ class BillManagerApp {
             await firebaseManager.scheduleMonthlyNotifications(allBills);
         } catch (err) {
             console.warn('Firebase notification scheduling failed (non-critical):', err);
+        }
+    }
+
+    async _unscheduleFirebaseIfEnabled(billId) {
+        const enabled = await database.getSetting('firebaseNotificationsEnabled');
+        if (!enabled) return;
+        try {
+            await firebaseManager.unscheduleBillNotifications(billId);
+        } catch (err) {
+            console.warn('Firebase unschedule failed (non-critical):', err);
         }
     }
 
