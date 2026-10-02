@@ -26,7 +26,10 @@ class BillManagerApp {
         await this.loadTemplates();
 
         // Initialise Firebase after core UI is ready — never blocks the timeline
-        this.initFirebase().catch(err => console.error('Firebase init error:', err));
+        this.initFirebase().catch(err => {
+            console.error('Firebase init error:', err);
+            alert(`Firebase init error: ${err.message}`);
+        });
 
         // Setup notifications
         const notificationEnabled = await database.getSetting('notificationsEnabled');
@@ -724,24 +727,29 @@ class BillManagerApp {
             } else {
                 await database.addBill(billData);
             }
-
-            // Reset form
-            document.getElementById('billForm').reset();
-            document.getElementById('billId').value = '';
-            document.getElementById('formTitle').textContent = 'Add New Bill';
-
-            // Reschedule Firebase notifications for all bills
-            const allBills = await database.getAllBills();
-            await firebaseManager.scheduleMonthlyNotifications(allBills);
-
-            // Switch to timeline and reload
-            this.switchTab('timeline');
-            await this.loadTimeline();
-
-            alert('Bill saved successfully!');
         } catch (error) {
             console.error('Error saving bill:', error);
             alert('Error saving bill. Please try again.');
+            return;
+        }
+
+        // Reset form
+        document.getElementById('billForm').reset();
+        document.getElementById('billId').value = '';
+        document.getElementById('formTitle').textContent = 'Add New Bill';
+
+        // Switch to timeline and reload
+        this.switchTab('timeline');
+        await this.loadTimeline();
+
+        alert('Bill saved successfully!');
+
+        // Reschedule Firebase notifications (best-effort — failure does not affect the save)
+        try {
+            const allBills = await database.getAllBills();
+            await firebaseManager.scheduleMonthlyNotifications(allBills);
+        } catch (error) {
+            console.warn('Firebase notification scheduling failed (non-critical):', error);
         }
     }
 
@@ -861,6 +869,13 @@ class BillManagerApp {
         try {
             await database.markBillAsPaid(id, false);
             await this.loadTimeline();
+
+            try {
+                const allBills = await database.getAllBills();
+                await firebaseManager.scheduleMonthlyNotifications(allBills);
+            } catch (err) {
+                console.warn('Firebase notification scheduling failed (non-critical):', err);
+            }
         } catch (error) {
             console.error('Error marking bill as unpaid:', error);
             alert('Error updating bill. Please try again.');
@@ -1313,9 +1328,16 @@ class BillManagerApp {
 
         try {
             const added = await database.applyTemplateToMonth(templateId, year, month);
-            
+
             alert(`Template applied! ${added.length} bill(s) added to ${new Date(year, month).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })}`);
             this.switchTab('timeline');
+
+            try {
+                const allBills = await database.getAllBills();
+                await firebaseManager.scheduleMonthlyNotifications(allBills);
+            } catch (err) {
+                console.warn('Firebase notification scheduling failed (non-critical):', err);
+            }
         } catch (error) {
             console.error('Error applying template:', error);
             alert('Error applying template. Please try again.');
@@ -1346,11 +1368,18 @@ class BillManagerApp {
 
         try {
             const results = await database.applyTemplateToYear(templateId, year);
-            
+
             const totalAdded = results.reduce((sum, r) => sum + r.added, 0);
             const monthCount = results.length;
             alert(`Template applied! ${totalAdded} bill(s) added across ${monthCount} month(s) (starting from next month)`);
             this.switchTab('timeline');
+
+            try {
+                const allBills = await database.getAllBills();
+                await firebaseManager.scheduleMonthlyNotifications(allBills);
+            } catch (err) {
+                console.warn('Firebase notification scheduling failed (non-critical):', err);
+            }
         } catch (error) {
             console.error('Error applying template:', error);
             alert('Error applying template. Please try again.');
@@ -2259,8 +2288,13 @@ class BillManagerApp {
         const ok = await firebaseManager.initialize();
         this.updateFirebaseStatus();
         if (ok) {
-            const bills = await database.getAllBills();
-            await firebaseManager.scheduleMonthlyNotifications(bills);
+            try {
+                const bills = await database.getAllBills();
+                await firebaseManager.scheduleMonthlyNotifications(bills);
+            } catch (err) {
+                console.error('Firebase scheduling error:', err);
+                alert(`Firebase scheduling error: ${err.message}`);
+            }
         }
     }
 

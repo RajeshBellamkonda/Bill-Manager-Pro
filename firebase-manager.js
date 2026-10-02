@@ -34,6 +34,7 @@ class FirebaseManager {
             return true;
         } catch (error) {
             console.error('Firebase initialization failed:', error);
+            alert(`Firebase initialization failed: ${error.message}`);
             this.initialized = false;
             return false;
         }
@@ -58,6 +59,7 @@ class FirebaseManager {
             return token;
         } catch (error) {
             console.error('Failed to get FCM token:', error);
+            alert(`Failed to get FCM token: ${error.message}`);
             return null;
         }
     }
