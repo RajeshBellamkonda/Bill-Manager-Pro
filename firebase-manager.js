@@ -78,6 +78,7 @@ class FirebaseManager {
         const tokenFingerprint = this.fcmToken.slice(-8);
         const result = { created: 0, skipped: 0 };
         const currencySymbol = (typeof app !== 'undefined') ? app.currencySymbol : '£';
+        const scheduledIds = new Set((await database.getSetting('firebaseScheduledIds')) || []);
 
         for (const bill of bills) {
             if (bill.isPaid) continue;
@@ -136,14 +137,17 @@ class FirebaseManager {
                 const docId = `${bill.id}_${n.date}_${n.type}_${tokenFingerprint}`;
                 const docRef = this.firestoreDb.collection('scheduled_notifications').doc(docId);
 
-                const existing = await docRef.get();
-                if (existing.exists) {
+                // Rules forbid client reads, so we can't check Firestore for an existing doc.
+                // Track created IDs locally; a re-set of an existing doc is an update, which
+                // the rules reject with permission-denied — treat that as "already scheduled".
+                if (scheduledIds.has(docId)) {
                     result.skipped++;
                     continue;
                 }
 
                 const scheduledFor = new Date(`${n.date}T09:00:00`);
-                await docRef.set({
+                try {
+                    await docRef.set({
                     token: this.fcmToken,
                     billId: String(bill.id),
                     billName: bill.name,
@@ -151,15 +155,27 @@ class FirebaseManager {
                     currency: currencySymbol,
                     dueDate: bill.dueDate,
                     scheduledFor: firebase.firestore.Timestamp.fromDate(scheduledFor),
-                    type: n.type,
-                    title: n.title,
-                    body: n.body,
-                    sent: false,
-                    createdAt: firebase.firestore.FieldValue.serverTimestamp()
-                });
-                result.created++;
+                        type: n.type,
+                        title: n.title,
+                        body: n.body,
+                        sent: false,
+                        createdAt: firebase.firestore.FieldValue.serverTimestamp()
+                    });
+                    result.created++;
+                    scheduledIds.add(docId);
+                } catch (error) {
+                    if (error.code === 'permission-denied') {
+                        // Doc already exists (update denied) — or rules not deployed; see console.
+                        console.warn(`Firestore write denied for ${docId}:`, error.message);
+                        result.skipped++;
+                    } else {
+                        throw error;
+                    }
+                }
             }
         }
+
+        await database.saveSetting('firebaseScheduledIds', [...scheduledIds]);
 
         console.log(`Firebase scheduling: ${result.created} created, ${result.skipped} skipped`);
         return result;
@@ -167,20 +183,33 @@ class FirebaseManager {
 
     // Delete all unsent Firestore notifications for a specific bill (call on edit/delete).
     async unscheduleBillNotifications(billId) {
-        if (!this.initialized || !this.firestoreDb || !this.fcmToken) return;
+        if (!this.initialized || !this.firestoreDb) return;
 
-        const snapshot = await this.firestoreDb.collection('scheduled_notifications')
-            .where('billId', '==', String(billId))
-            .where('token', '==', this.fcmToken)
-            .where('sent', '==', false)
-            .get();
+        // Rules forbid client queries, so delete by ID using the locally tracked IDs.
+        const scheduledIds = (await database.getSetting('firebaseScheduledIds')) || [];
+        const prefix = `${billId}_`;
+        const toDelete = scheduledIds.filter(id => id.startsWith(prefix));
+        if (toDelete.length === 0) return;
 
-        if (snapshot.empty) return;
+        const collection = this.firestoreDb.collection('scheduled_notifications');
+        const removed = new Set();
+        for (const docId of toDelete) {
+            try {
+                await collection.doc(docId).delete();
+                removed.add(docId);
+            } catch (error) {
+                if (error.code === 'permission-denied') {
+                    // Doc already gone (e.g. removed after sending) — nothing left to delete.
+                    console.warn(`Firestore delete denied for ${docId}:`, error.message);
+                    removed.add(docId);
+                } else {
+                    console.warn(`Firestore delete failed for ${docId}:`, error);
+                }
+            }
+        }
 
-        const batch = this.firestoreDb.batch();
-        snapshot.forEach(doc => batch.delete(doc.ref));
-        await batch.commit();
-        console.log(`Deleted ${snapshot.size} scheduled notifications for bill ${billId}`);
+        await database.saveSetting('firebaseScheduledIds', scheduledIds.filter(id => !removed.has(id)));
+        console.log(`Deleted ${removed.size} scheduled notifications for bill ${billId}`);
     }
 
     async testConnection() {
