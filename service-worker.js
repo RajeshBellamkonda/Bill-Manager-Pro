@@ -106,14 +106,21 @@ self.addEventListener('message', (event) => {
 
 // Handle push notifications
 self.addEventListener('push', (event) => {
-  const data = event.data ? event.data.json() : {};
-  const title = data.title || 'Bill Reminder';
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch (_) {
+    data = { body: event.data ? event.data.text() : '' };
+  }
+  // FCM wraps title/body (and webpush options like tag) inside a `notification` object
+  const n = data.notification || data;
+  const title = n.title || 'Bill Reminder';
   const options = {
-    body: data.body || 'You have a bill due soon',
+    body: n.body || 'You have a bill due soon',
     icon: 'https://rajeshbellamkonda.github.io/Bill-Manager-Pro/fav-icon.png',
     badge: 'https://rajeshbellamkonda.github.io/Bill-Manager-Pro/fav-icon.png',
     vibrate: [200, 100, 200],
-    tag: 'bill-reminder',
+    tag: n.tag || 'bill-reminder',
     requireInteraction: true,
     actions: [
       {
