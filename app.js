@@ -345,28 +345,36 @@ class BillManagerApp {
         }
     }
 
-    navigateMonth(direction) {
+    async navigateMonth(direction) {
         this.currentMonth.setDate(1);
         this.currentMonth.setMonth(this.currentMonth.getMonth() + direction);
-        this.loadTimeline();
+        await this.loadTimeline();
     }
 
     initTimelineSwipe() {
         const el = document.getElementById('timeline-tab');
+        // Listen on the full-height container so swipes work in the empty space
+        // below the tiles when they are minimised and the tab itself is short
+        const swipeArea = el.closest('.container') || el;
         let startX = 0;
         let startY = 0;
 
-        el.addEventListener('touchstart', (e) => {
+        swipeArea.addEventListener('touchstart', (e) => {
             startX = e.touches[0].clientX;
             startY = e.touches[0].clientY;
         }, { passive: true });
 
-        el.addEventListener('touchend', (e) => {
+        swipeArea.addEventListener('touchend', async (e) => {
+            if (!el.classList.contains('active')) return;
             const dx = e.changedTouches[0].clientX - startX;
             const dy = e.changedTouches[0].clientY - startY;
             // Only trigger if horizontal swipe is dominant and long enough
             if (Math.abs(dx) > 50 && Math.abs(dx) > Math.abs(dy) * 1.5) {
-                this.navigateMonth(dx < 0 ? 1 : -1);
+                await this.navigateMonth(dx < 0 ? 1 : -1);
+                // Scroll back to the top once the target month has loaded
+                window.scrollTo(0, 0);
+                el.scrollTop = 0;
+                document.scrollingElement.scrollTop = 0;
             }
         }, { passive: true });
     }
@@ -725,6 +733,7 @@ class BillManagerApp {
                 await this._unscheduleFirebaseIfEnabled(this.editingBillId);
                 await database.updateBill(this.editingBillId, billData);
                 this.editingBillId = null;
+                this.editingBillCategory = '';
             } else {
                 await database.addBill(billData);
             }
@@ -755,8 +764,10 @@ class BillManagerApp {
             if (!bill) return;
 
             this.editingBillId = id;
-            
+            this.editingBillCategory = bill.category || '';
+
             // Ensure categories are loaded first
+            document.getElementById('billCategory').value = '';
             await this.loadCategoryDropdown();
             
             // Fill form
@@ -769,25 +780,9 @@ class BillManagerApp {
             document.getElementById('isCredit').checked = bill.isCredit || false;
             document.getElementById('formTitle').textContent = 'Edit Bill';
             
-            // Set category after DOM update to ensure dropdown is rendered
-            requestAnimationFrame(() => {
-                const categorySelect = document.getElementById('billCategory');
-                if (categorySelect && bill.category) {
-                    categorySelect.value = bill.category;
-                    // If value didn't set, try to find matching option
-                    if (!categorySelect.value && bill.category) {
-                        const matchingOption = Array.from(categorySelect.options).find(
-                            opt => opt.value.trim() === bill.category.trim()
-                        );
-                        if (matchingOption) {
-                            categorySelect.value = matchingOption.value;
-                            console.log('Set using trimmed match');
-                        }
-                    }
-                }
-            });
-            
-            // Switch to form tab
+            document.getElementById('billCategory').value = bill.category || '';
+
+            // Switch to form tab (its dropdown reload preserves the selection)
             this.switchTab('add-bill');
         } catch (error) {
             console.error('Error loading bill:', error);
@@ -797,6 +792,7 @@ class BillManagerApp {
 
     cancelEdit() {
         this.editingBillId = null;
+        this.editingBillCategory = '';
         document.getElementById('billForm').reset();
         document.getElementById('formTitle').textContent = 'Add New Bill';
         this.switchTab('timeline');
@@ -1872,9 +1868,16 @@ class BillManagerApp {
     async loadCategoryDropdown() {
         const categories = await database.getCategories();
         const categorySelect = document.getElementById('billCategory');
-        
+
+        // Read the selection after the await so concurrent reloads don't wipe it.
+        // While editing, keep the bill's category even if it was removed from the list.
+        const selected = categorySelect.value || this.editingBillCategory || '';
+        const options = [...categories];
+        if (selected && !options.includes(selected)) options.push(selected);
+
         categorySelect.innerHTML = '<option value="">Select a category</option>' +
-            categories.map(cat => `<option value="${cat}">${cat}</option>`).join('');
+            options.map(cat => `<option value="${this.escapeHtml(cat)}">${this.escapeHtml(cat)}</option>`).join('');
+        categorySelect.value = selected;
     }
 
     async loadCategoriesList() {
@@ -2776,7 +2779,7 @@ class BillManagerApp {
             // Import all settings directly (including monthly credits with original profile IDs)
             if (importData.settings) {
                 for (const setting of importData.settings) {
-                    // Skip currentProfileId, we'll set it to the first imported profile
+                    // Skip currentProfileId, restored separately below once profiles are known
                     if (setting.key === 'currentProfileId') {
                         continue;
                     }
@@ -2786,11 +2789,14 @@ class BillManagerApp {
                 }
             }
             
-            // Set current profile to the first imported profile
+            // Restore the profile that was active at export time (its monthly credits are keyed by
+            // profile ID); fall back to the first imported profile if it no longer exists
             const newProfiles = await database.getAllProfiles();
             if (newProfiles.length > 0) {
-                database.setCurrentProfile(newProfiles[0].id);
-                await database.saveSetting('currentProfileId', newProfiles[0].id);
+                const exportedProfileId = importData.settings?.find(s => s.key === 'currentProfileId')?.value;
+                const activeProfile = newProfiles.find(p => p.id === exportedProfileId) || newProfiles[0];
+                database.setCurrentProfile(activeProfile.id);
+                await database.saveSetting('currentProfileId', activeProfile.id);
             }
             
             alert(`Data imported successfully!\n\n✅ All existing data was deleted\n\nImported:\n- ${importData.bills?.length || 0} bills\n- ${importData.templates?.length || 0} templates\n- ${importData.profiles?.length || 0} profiles`);
