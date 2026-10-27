@@ -392,8 +392,11 @@ class BillManagerApp {
         const creditKey = `monthlyCredit_${profileId}_${year}_${month}`;
         let savedCredit = await database.getSetting(creditKey);
 
-        // If no credit set for this month, carry forward remaining balance from previous month
-        if (savedCredit === null) {
+        // If no credit set for this month, carry forward remaining balance from previous month.
+        // Only for the current/future months; browsing past months must not create or change balances.
+        const now = new Date();
+        const isPastMonth = year * 12 + month < now.getFullYear() * 12 + now.getMonth();
+        if (savedCredit === null && !isPastMonth) {
             const prevDate = new Date(year, month - 1, 1);
             const prevYear = prevDate.getFullYear();
             const prevMonth = prevDate.getMonth();
@@ -570,10 +573,14 @@ class BillManagerApp {
 
         timeline.innerHTML = html;
 
-        // Write the balance after the last bill directly to next month
-        const nextDate = new Date(year, month + 1, 1);
-        const nextCreditKey = `monthlyCredit_${profileId}_${nextDate.getFullYear()}_${nextDate.getMonth()}`;
-        await database.saveSetting(nextCreditKey, remainingCredit);
+        // Write the balance after the last bill to next month, but only when viewing the
+        // current or a future month — browsing past months must not change later balances.
+        const nowDate = new Date();
+        if (year * 12 + month >= nowDate.getFullYear() * 12 + nowDate.getMonth()) {
+            const nextDate = new Date(year, month + 1, 1);
+            const nextCreditKey = `monthlyCredit_${profileId}_${nextDate.getFullYear()}_${nextDate.getMonth()}`;
+            await database.saveSetting(nextCreditKey, remainingCredit);
+        }
     }
 
     togglePaidBills() {
